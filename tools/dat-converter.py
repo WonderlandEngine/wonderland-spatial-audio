@@ -19,7 +19,7 @@ def save_data_to_file(data_arrays):
         for elevation, azimuth, data in data_arrays:
             azimuth_bytes = struct.pack("f", azimuth)
             elevation_bytes = struct.pack("f", elevation)
-            
+
             data_bytes = data.tobytes()
 
             # Write azimuth, elevation, and data to the file
@@ -42,7 +42,7 @@ for i in number_range:
             # Read the raw data from the file
                 raw_data = file.read()
                 encoded_data = []
-                azi = re.findall(pattern, filename)[0] 
+                azi = re.findall(pattern, filename)[0]
                 for j in range(0, len(raw_data), 2):
                     sample = struct.unpack(">h", raw_data[j:j+2])[0]  # Unpack as big-endian short (16-bit)
                     encoded_data.append((sample))
@@ -54,7 +54,7 @@ for i in number_range:
                     # Read the raw data from the file
                         raw_data = file.read()
                         encoded_data = []
-                        azi = re.findall(pattern, filename)[0] 
+                        azi = re.findall(pattern, filename)[0]
                         for j in range(0, len(raw_data), 2):
                             sample = struct.unpack(">h", raw_data[j:j+2])[0]  # Unpack as big-endian short (16-bit)
                             encoded_data.append((sample))
