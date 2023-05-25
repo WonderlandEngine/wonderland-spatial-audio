@@ -28,7 +28,8 @@ export class AudioSource extends Component {
     }
 
     _update(dt) {
-        getAudioMixer().updatePos(this.audioID, this.object.getPositionWorld(tempVec));
+        getAudioMixer().updatePosition(this.audioID, this.object.getPositionWorld(tempVec));
     }
 
 }
+
