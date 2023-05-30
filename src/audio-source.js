@@ -1,5 +1,5 @@
 import {Component, Property, Emitter} from '@wonderlandengine/api';
-import { getAudioMixer } from './audio-mixer'; 
+import { getAudioMixer } from './audio-mixer';
 
 const tempVec = new Float32Array(3);
 
@@ -13,7 +13,7 @@ export class AudioSource extends Component {
         file: Property.string(),
         maxVol: Property.float(1.0),
         maxAudibleDist: Property.int(5),
-    
+
     };
 
     onEnded = new Emitter();
@@ -28,7 +28,7 @@ export class AudioSource extends Component {
     }
 
     _update(dt) {
-        getAudioMixer().updatePos(this.audioID, this.object.getPositionWorld(tempVec));
+        getAudioMixer().updatePosition(this.audioID, this.object.getPositionWorld(tempVec));
     }
 
 }
