@@ -12,34 +12,34 @@
  */
 
 /* wle:auto-imports:start */
-import {Cursor} from '@wonderlandengine/components';
-import {FingerCursor} from '@wonderlandengine/components';
-import {HandTracking} from '@wonderlandengine/components';
-import {MouseLookComponent} from '@wonderlandengine/components';
-import {PlayerHeight} from '@wonderlandengine/components';
-import {TeleportComponent} from '@wonderlandengine/components';
-import {VrModeActiveSwitch} from '@wonderlandengine/components';
-import {AudioSource} from 'wonderland-spatial-audio';
-import {Listener} from 'wonderland-spatial-audio';
-import {ButtonComponent} from './button.js';
-import {HoveringAnim} from './hovering-anim.js';
+import { Cursor } from "@wonderlandengine/components";
+import { FingerCursor } from "@wonderlandengine/components";
+import { HandTracking } from "@wonderlandengine/components";
+import { MouseLookComponent } from "@wonderlandengine/components";
+import { PlayerHeight } from "@wonderlandengine/components";
+import { TeleportComponent } from "@wonderlandengine/components";
+import { VrModeActiveSwitch } from "@wonderlandengine/components";
+import { AudioSource } from "wonderland-spatial-audio";
+import { Listener } from "wonderland-spatial-audio";
+import { ButtonComponent } from "./button.js";
+import { HoveringAnim } from "./hovering-anim.js";
 /* wle:auto-imports:end */
 
-import {loadRuntime} from '@wonderlandengine/api';
-import * as API from '@wonderlandengine/api'; // Deprecated: Backward compatibility.
+import { loadRuntime } from "@wonderlandengine/api";
+import * as API from "@wonderlandengine/api"; // Deprecated: Backward compatibility.
 
 /* wle:auto-constants:start */
 const RuntimeOptions = {
-    physx: false,
-    loader: false,
-    xrFramebufferScaleFactor: 1,
-    canvas: 'canvas',
+  physx: false,
+  loader: false,
+  xrFramebufferScaleFactor: 1,
+  canvas: "canvas",
 };
 const Constants = {
-    ProjectName: 'SpatialAudioLab',
-    RuntimeBaseName: 'WonderlandRuntime',
-    WebXRRequiredFeatures: ['local',],
-    WebXROptionalFeatures: ['local','local-floor','hand-tracking','hit-test',],
+  ProjectName: "SpatialAudioLab",
+  RuntimeBaseName: "WonderlandRuntime",
+  WebXRRequiredFeatures: ["local"],
+  WebXROptionalFeatures: ["local", "local-floor", "hand-tracking", "hit-test"],
 };
 /* wle:auto-constants:end */
 
@@ -48,36 +48,40 @@ Object.assign(engine, API); // Deprecated: Backward compatibility.
 window.WL = engine; // Deprecated: Backward compatibility.
 
 engine.onSceneLoaded.once(() => {
-    const el = document.getElementById('version');
-    if (el) setTimeout(() => el.remove(), 2000);
+  const el = document.getElementById("version");
+  if (el) setTimeout(() => el.remove(), 2000);
 });
 
 /* WebXR setup. */
 
 function requestSession(mode) {
-    engine
-        .requestXRSession(mode, Constants.WebXRRequiredFeatures, Constants.WebXROptionalFeatures)
-        .catch((e) => console.error(e));
+  engine
+    .requestXRSession(
+      mode,
+      Constants.WebXRRequiredFeatures,
+      Constants.WebXROptionalFeatures
+    )
+    .catch((e) => console.error(e));
 }
 
 function setupButtonsXR() {
-    /* Setup AR / VR buttons */
-    const arButton = document.getElementById('ar-button');
-    if (arButton) {
-        arButton.dataset.supported = engine.arSupported;
-        arButton.addEventListener('click', () => requestSession('immersive-ar'));
-    }
-    const vrButton = document.getElementById('vr-button');
-    if (vrButton) {
-        vrButton.dataset.supported = engine.vrSupported;
-        vrButton.addEventListener('click', () => requestSession('immersive-vr'));
-    }
+  /* Setup AR / VR buttons */
+  const arButton = document.getElementById("ar-button");
+  if (arButton) {
+    arButton.dataset.supported = engine.arSupported;
+    arButton.addEventListener("click", () => requestSession("immersive-ar"));
+  }
+  const vrButton = document.getElementById("vr-button");
+  if (vrButton) {
+    vrButton.dataset.supported = engine.vrSupported;
+    vrButton.addEventListener("click", () => requestSession("immersive-vr"));
+  }
 }
 
-if (document.readyState === 'loading') {
-    window.addEventListener('load', setupButtonsXR);
+if (document.readyState === "loading") {
+  window.addEventListener("load", setupButtonsXR);
 } else {
-    setupButtonsXR();
+  setupButtonsXR();
 }
 
 /* wle:auto-register:start */
