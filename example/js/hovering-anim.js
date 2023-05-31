@@ -4,7 +4,7 @@ import { Component, Property } from '@wonderlandengine/api';
  * hovering_anim
  */
 export class HoveringAnim extends Component {
-    static TypeName = 'hovering_anim';
+    static TypeName = 'hovering-anim';
     /* Properties that are configurable in the editor */
     static Properties = {
         speed: Property.float(1.0),

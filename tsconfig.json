@@ -9,6 +9,8 @@
     "allowJs": false,
     "strict": true,
     "experimentalDecorators": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   },
 
   "include": ["src/*"],

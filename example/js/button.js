@@ -5,8 +5,8 @@ import {
     Emitter,
 } from '@wonderlandengine/api';
 import { CursorTarget, HowlerAudioSource } from '@wonderlandengine/components';
-import { AudioSource } from './audio-source.js';
-import { getAudioMixer} from './audio-mixer.ts';
+import { AudioSource } from 'wonderland-spatial-audio';
+import { getAudioMixer} from 'wonderland-spatial-audio';
 
 /**
  * Helper function to trigger haptic feedback pulse.

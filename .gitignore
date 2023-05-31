@@ -1,3 +1,4 @@
-example/deploy
-example/.editor
+**/deploy/
+**/.editor/
 **/node_modules/
+**/cache/

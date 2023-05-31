@@ -80,9 +80,6 @@
                     }
                 },
                 {
-                    "type": "howler-audio-listener"
-                },
-                {
                     "type": "vr-mode-active-switch",
                     "vr-mode-active-switch": {
                         "activateComponents": "in non-VR"
@@ -1605,8 +1602,8 @@
                     }
                 },
                 {
-                    "type": "hovering_anim",
-                    "active": false
+                    "type": "hovering-anim",
+                    "active": true
                 }
             ],
             "scaling": [
@@ -1633,7 +1630,7 @@
                 {
                     "type": "mesh",
                     "mesh": {
-                        "mesh": "10",
+                        "mesh": "11",
                         "material": "22"
                     }
                 },
@@ -1648,14 +1645,14 @@
                 {
                     "type": "collision",
                     "collision": {
-                        "collider": "sphere",
+                        "collider": "aabb",
                         "sphere": {
                             "radius": 0.1
                         },
                         "aabb": {
                             "extents": [
                                 0.0799999,
-                                0.0599999,
+                                0.0299999,
                                 0.0799999
                             ]
                         }
@@ -1663,20 +1660,20 @@
                 }
             ],
             "translation": [
-                -0.0007791,
-                1.0270551,
-                -2.342858351767063e-8
+                -0.0008849,
+                1.2236781,
+                -2.352840056119021e-8
             ],
             "rotation": [
                 0.9988061,
-                6.546134159179928e-7,
-                0.0488497,
-                -0.0000177
+                0.0000013,
+                0.0488494,
+                -0.0000334
             ],
             "scaling": [
-                0.5,
-                0.2009887,
-                0.4999738
+                0.4999988,
+                0.1010007,
+                0.4999766
             ]
         },
         "244": {
@@ -2463,7 +2460,7 @@
             "version": [
                 1,
                 0,
-                1
+                2
             ]
         },
         "vr": {
