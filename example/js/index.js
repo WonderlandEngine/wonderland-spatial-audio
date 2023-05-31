@@ -36,7 +36,7 @@ const RuntimeOptions = {
     canvas: 'canvas',
 };
 const Constants = {
-    ProjectName: 'Spatial-Audio-Lab',
+    ProjectName: 'SpatialAudioLab',
     RuntimeBaseName: 'WonderlandRuntime',
     WebXRRequiredFeatures: ['local',],
     WebXROptionalFeatures: ['local','local-floor','hand-tracking','hit-test',],

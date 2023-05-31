@@ -1662,7 +1662,7 @@
             "translation": [
                 -0.0008849,
                 1.2236781,
-                -2.352840056119021e-8
+                -2.3528400561190217e-8
             ],
             "rotation": [
                 0.9988061,
@@ -1685,7 +1685,7 @@
                         "shadows": true,
                         "type": "sun"
                     },
-                    "active": true
+                    "active": false
                 }
             ],
             "translation": [
@@ -1746,18 +1746,23 @@
                     "mesh": {
                         "mesh": "9",
                         "material": "249"
-                    }
+                    },
+                    "active": true
                 },
                 {
                     "type": "audio-source",
                     "audio-source": {
                         "file": "sfx/1.wav"
                     }
+                },
+                {
+                    "type": "light",
+                    "active": true
                 }
             ],
             "translation": [
                 3.1993303,
-                3.1221156,
+                1.922,
                 -2.916541
             ],
             "rotation": [
@@ -1767,9 +1772,9 @@
                 1.0
             ],
             "scaling": [
-                1.0,
-                1.0,
-                1.0
+                0.5,
+                0.5,
+                0.5
             ]
         }
     },
@@ -2295,7 +2300,7 @@
         },
         "249": {
             "name": "balllight",
-            "pipeline": "34",
+            "pipeline": "37",
             "Phong": {
                 "emissiveColor": [
                     1.0,
@@ -2310,16 +2315,16 @@
                     0.0
                 ],
                 "diffuseColor": [
-                    1.0,
-                    1.0,
-                    1.0,
-                    1.0
+                    0.8116592,
+                    0.8116592,
+                    0.8116592,
+                    0.3991031
                 ],
                 "specularColor": [
-                    1.0,
-                    1.0,
-                    1.0,
-                    1.0
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0
                 ]
             },
             "Flat": {
@@ -2456,7 +2461,7 @@
     },
     "settings": {
         "project": {
-            "name": "Spatial-Audio-Lab",
+            "name": "SpatialAudioLab",
             "version": [
                 1,
                 0,

@@ -4,7 +4,7 @@ import {
     Property,
     Emitter,
 } from '@wonderlandengine/api';
-import { CursorTarget, HowlerAudioSource } from '@wonderlandengine/components';
+import { CursorTarget } from '@wonderlandengine/components';
 import { AudioSource } from 'wonderland-spatial-audio';
 import { getAudioMixer} from 'wonderland-spatial-audio';
 
