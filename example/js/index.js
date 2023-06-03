@@ -12,17 +12,18 @@
  */
 
 /* wle:auto-imports:start */
-import { Cursor } from "@wonderlandengine/components";
-import { FingerCursor } from "@wonderlandengine/components";
-import { HandTracking } from "@wonderlandengine/components";
-import { MouseLookComponent } from "@wonderlandengine/components";
-import { PlayerHeight } from "@wonderlandengine/components";
-import { TeleportComponent } from "@wonderlandengine/components";
-import { VrModeActiveSwitch } from "@wonderlandengine/components";
-import { AudioSource } from "wonderland-spatial-audio";
-import { Listener } from "wonderland-spatial-audio";
-import { ButtonComponent } from "./button.js";
-import { HoveringAnim } from "./hovering-anim.js";
+import {Cursor} from '@wonderlandengine/components';
+import {FingerCursor} from '@wonderlandengine/components';
+import {HandTracking} from '@wonderlandengine/components';
+import {MouseLookComponent} from '@wonderlandengine/components';
+import {PlayerHeight} from '@wonderlandengine/components';
+import {TeleportComponent} from '@wonderlandengine/components';
+import {VrModeActiveSwitch} from '@wonderlandengine/components';
+import {AudioSource} from 'wonderland-spatial-audio';
+import {Listener} from 'wonderland-spatial-audio';
+import {ButtonComponent} from './button.js';
+import {HoveringAnim} from './hovering-anim.js';
+import {LightAnim} from './light-anim.js';
 /* wle:auto-imports:end */
 
 import { loadRuntime } from "@wonderlandengine/api";
@@ -30,16 +31,16 @@ import * as API from "@wonderlandengine/api"; // Deprecated: Backward compatibil
 
 /* wle:auto-constants:start */
 const RuntimeOptions = {
-  physx: false,
-  loader: false,
-  xrFramebufferScaleFactor: 1,
-  canvas: "canvas",
+    physx: false,
+    loader: false,
+    xrFramebufferScaleFactor: 1,
+    canvas: 'canvas',
 };
 const Constants = {
-  ProjectName: "SpatialAudioLab",
-  RuntimeBaseName: "WonderlandRuntime",
-  WebXRRequiredFeatures: ["local"],
-  WebXROptionalFeatures: ["local", "local-floor", "hand-tracking", "hit-test"],
+    ProjectName: 'SpatialAudioLab',
+    RuntimeBaseName: 'WonderlandRuntime',
+    WebXRRequiredFeatures: ['local',],
+    WebXROptionalFeatures: ['local','local-floor','hand-tracking','hit-test',],
 };
 /* wle:auto-constants:end */
 
@@ -96,6 +97,7 @@ engine.registerComponent(AudioSource);
 engine.registerComponent(Listener);
 engine.registerComponent(ButtonComponent);
 engine.registerComponent(HoveringAnim);
+engine.registerComponent(LightAnim);
 /* wle:auto-register:end */
 
 engine.scene.load(`${Constants.ProjectName}.bin`);

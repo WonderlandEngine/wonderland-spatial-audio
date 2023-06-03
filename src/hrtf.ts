@@ -8,7 +8,7 @@ import { Point, Triangle, Delaunay } from "./delaunay.ts";
 export class HRTFContainer {
   /* 64 samples should be enough quality for most applications.
    * Note that increasing the sample size reduces performance. */
-  private readonly HRIR_PATH: string = "./hrtf_128.bin";
+  private readonly HRIR_PATH: string = "./hrtf_64.bin";
   public hrirLoaded: Promise<unknown>;
   private hrirData: Float32Array;
   private triangles: Triangle[];

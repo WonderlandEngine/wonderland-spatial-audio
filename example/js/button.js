@@ -70,6 +70,10 @@ export class ButtonComponent extends Component {
     this.targetPos = this.returnPos[1];
     this.currentPos = 0;
     this.direction = this.Direction.STILL;
+    this.time = 0;
+    this.playFirst = -1;
+    this.playSecond = -1;
+    this.playThird = -1;
   }
 
   /* Called by 'cursor-target' */
@@ -86,11 +90,7 @@ export class ButtonComponent extends Component {
   /* Called by 'cursor-target' */
   async onDown(_, cursor) {
     const am = getAudioMixer();
-    if (am.isPlaying(this.audioEffect.audioID)) {
-      am.stopAudio(this.audioEffect.audioID);
-    } else {
-      this.audioEffect.play();
-    }
+    this.playFirst = Math.floor(Math.random() * am.getNumOfSources());
     this.targetPos = this.returnPos[1] - 0.1;
     this.direction = this.Direction.DOWN;
     hapticFeedback(cursor.object, 1.0, 20);
@@ -115,6 +115,7 @@ export class ButtonComponent extends Component {
   }
 
   update(dt) {
+    this.time += dt;
     if (this.direction === this.Direction.STILL) {
     } else if (this.direction == this.Direction.DOWN) {
       this.currentPos = this.object.getPositionLocal()[1];
@@ -126,6 +127,25 @@ export class ButtonComponent extends Component {
       this.object.translateLocal([0, 0.005, 0]);
       if (this.currentPos > this.targetPos)
         this.direction = this.Direction.STILL;
+    }
+
+    if(this.playFirst !== -1) {
+      this.time = 0;
+      const am = getAudioMixer();
+      am.playAudio(this.playFirst);
+      this.playSecond = Math.floor(Math.random() * am.getNumOfSources());
+      this.playFirst = -1;
+    }
+    if (this.time > 1 && this.playSecond !== -1) {
+      const am = getAudioMixer();
+      am.playAudio(this.playSecond);
+      this.playThird = Math.floor(Math.random() * am.getNumOfSources());
+      this.playSecond = -1;
+    }
+    if (this.time > 2 && this.playThird !== -1) {
+      const am = getAudioMixer();
+      am.playAudio(this.playThird);
+      this.playThird = -1;
     }
   }
 }

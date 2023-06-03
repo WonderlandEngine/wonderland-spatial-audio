@@ -170,6 +170,10 @@ export class AudioMixer {
     const buffer = await response.arrayBuffer();
     return this.audioContext.decodeAudioData(buffer);
   }
+
+  public getNumOfSources(): number {
+    return this.sources.length;
+  }
 }
 
 let audioMixer: AudioMixer;
