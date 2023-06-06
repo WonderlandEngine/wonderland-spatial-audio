@@ -15,12 +15,11 @@ export class AudioSource extends Component {
   onEnded = new Emitter();
 
   async start() {
-    const rand = Math.floor(Math.random() * 4) + 1
+    const rand = Math.floor(Math.random() * 4) + 1;
     this.audioID = await getAudioMixer().addSource(
-      "sfx/"+rand+".wav",
+      "sfx/" + rand + ".wav",
       this.object.getPositionWorld(tempVec)
     );
-    console.log(this.audioID)
     this.update = this._update.bind(this);
   }
 

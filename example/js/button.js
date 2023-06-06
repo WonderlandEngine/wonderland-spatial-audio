@@ -27,13 +27,6 @@ export function hapticFeedback(object, strength, duration) {
 /**
  * Button component.
  *
- * Shows a 'hoverMaterial' on cursor hover, moves backward on cursor down,
- * returns to its position on cursor up, plays click/unclick sounds and haptic
- * feedback on hover.
- *
- * Use `addClickFunction(() => {})` on the `cursor-target` component used
- * with the button to define the button's action.
- *
  * Supports interaction with `finger-cursor` component for hand tracking.
  */
 export class ButtonComponent extends Component {
@@ -52,6 +45,10 @@ export class ButtonComponent extends Component {
     DOWN: "down",
     STILL: "still",
   };
+  time = 0;
+  playFirst = -1;
+  playSecond = -1;
+  playThird = -1;
 
   start() {
     const target =
@@ -70,10 +67,6 @@ export class ButtonComponent extends Component {
     this.targetPos = this.returnPos[1];
     this.currentPos = 0;
     this.direction = this.Direction.STILL;
-    this.time = 0;
-    this.playFirst = -1;
-    this.playSecond = -1;
-    this.playThird = -1;
   }
 
   /* Called by 'cursor-target' */
@@ -90,7 +83,7 @@ export class ButtonComponent extends Component {
   /* Called by 'cursor-target' */
   async onDown(_, cursor) {
     const am = getAudioMixer();
-    this.playFirst = Math.floor(Math.random() * am.getNumOfSources());
+    this.playFirst = Math.floor(Math.random() * am.sourcesCount);
     this.targetPos = this.returnPos[1] - 0.1;
     this.direction = this.Direction.DOWN;
     hapticFeedback(cursor.object, 1.0, 20);
@@ -129,20 +122,18 @@ export class ButtonComponent extends Component {
         this.direction = this.Direction.STILL;
     }
 
-    if(this.playFirst !== -1) {
+    if (this.playFirst !== -1) {
       this.time = 0;
       const am = getAudioMixer();
       am.playAudio(this.playFirst);
-      this.playSecond = Math.floor(Math.random() * am.getNumOfSources());
+      this.playSecond = Math.floor(Math.random() * am.sourcesCount);
       this.playFirst = -1;
-    }
-    if (this.time > 1 && this.playSecond !== -1) {
+    } else if (this.time > 1 && this.playSecond !== -1) {
       const am = getAudioMixer();
       am.playAudio(this.playSecond);
-      this.playThird = Math.floor(Math.random() * am.getNumOfSources());
+      this.playThird = Math.floor(Math.random() * am.sourcesCount);
       this.playSecond = -1;
-    }
-    if (this.time > 2 && this.playThird !== -1) {
+    } else if (this.time > 2 && this.playThird !== -1) {
       const am = getAudioMixer();
       am.playAudio(this.playThird);
       this.playThird = -1;

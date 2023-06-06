@@ -28,6 +28,7 @@
   },
   "homepage": "https://github.com/WonderlandEngine/wonderland-spatial-audio#readme",
   "devDependencies": {
-    "esbuild": "^0.17.19"
+    "esbuild": "^0.17.19",
+    "typescript": "^5.1.3"
   }
 }

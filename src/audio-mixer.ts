@@ -46,7 +46,7 @@ export class AudioMixer {
    *
    * @param object The listener that receives the audio.
    */
-  public setListener(object: Object3D): void {
+  setListener(object: Object3D): void {
     this.listener = object;
   }
 
@@ -60,20 +60,20 @@ export class AudioMixer {
    * @param {Float32Array} position current position world of the emmitter.
    * @returns {Promise<number>} The ID that identifies the source.
    */
-  public async addSource(
+  async addSource(
     audioFile: string,
     position: Float32Array
   ): Promise<number> {
     const audioData: AudioBuffer = await this.getAudioData(audioFile);
     const gainNode: GainNode = this.audioContext.createGain();
     gainNode.gain.value = this.INIT_GAIN;
-    const panner: HRTFPanner = new HRTFPanner(
+    const panner = new HRTFPanner(
       this.audioContext,
       gainNode,
       this.hrtfContainer
     );
 
-    const sourceId: number = this.sources.length;
+    const sourceId = this.sources.length;
     this.sources.push([audioData, panner, gainNode]);
 
     await this.hrtfContainer.hrirLoaded;
@@ -92,8 +92,8 @@ export class AudioMixer {
    * @param position Position to where it moved to
    * @returns true if update succeeded, false otherwise
    */
-  public updatePosition(sourceId: number, position: Float32Array): boolean {
-    if (sourceId >= this.sources.length || this.listener == undefined) {
+  updatePosition(sourceId: number, position: Float32Array): boolean {
+    if (sourceId >= this.sources.length || this.listener === undefined) {
       return false;
     }
 
@@ -128,7 +128,7 @@ export class AudioMixer {
    * @param sourceId ID of the source that is supposed to be played
    * @returns {AudioBufferSourceNode} on success. Undefined otherwise.
    */
-  public playAudio(sourceId: number): AudioBufferSourceNode | undefined {
+  playAudio(sourceId: number): AudioBufferSourceNode | undefined {
     if (sourceId >= this.sources.length) {
       return;
     }
@@ -151,7 +151,7 @@ export class AudioMixer {
    *
    * @param sourceId ID of the source that is supposed to stop playing.
    */
-  public stopAudio(sourceId: number): void {
+  stopAudio(sourceId: number): void {
     const audioNode = this.audioNodes[sourceId];
     if (audioNode !== undefined && this.isPlaying(sourceId)) audioNode.stop();
   }
@@ -161,7 +161,7 @@ export class AudioMixer {
    * @param sourceId ID of the source of interest.
    * @returns {true} if the source is playing.
    */
-  public isPlaying(sourceId: number): boolean {
+  isPlaying(sourceId: number): boolean {
     return this.audioNodes[sourceId] !== undefined;
   }
 
@@ -171,7 +171,7 @@ export class AudioMixer {
     return this.audioContext.decodeAudioData(buffer);
   }
 
-  public getNumOfSources(): number {
+  get sourcesCount(): number {
     return this.sources.length;
   }
 }
@@ -179,7 +179,7 @@ export class AudioMixer {
 let audioMixer: AudioMixer;
 
 export function getAudioMixer() {
-  if (audioMixer == undefined) {
+  if (audioMixer === undefined) {
     audioMixer = new AudioMixer();
   }
   return audioMixer;
