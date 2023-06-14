@@ -56,7 +56,6 @@ export class ButtonComponent extends Component {
       this.object.addComponent(CursorTarget);
 
     this.audioEffect = this.audioObject.getComponent(AudioSource);
-    //this.audioEffect.onEnded.add(() => (this.audioObject.active = false));
 
     target.onHover.add(this.onHover.bind(this));
     target.onUnhover.add(this.onUnHover.bind(this));
