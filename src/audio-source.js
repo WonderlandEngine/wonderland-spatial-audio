@@ -16,6 +16,7 @@ export class AudioSource extends Component {
 
   async start() {
     const rand = Math.floor(Math.random() * 4) + 1;
+    console.log(rand);
     this.audioID = await getAudioMixer().addSource(
       "sfx/" + rand + ".wav",
       this.object.getPositionWorld(tempVec)

@@ -2778,6 +2778,102 @@
                 "name": "TileFeedback.frag",
                 "file": "default"
             }
+        },
+        "278": {
+            "link": {
+                "name": "lib\\Color.glsl",
+                "file": "default"
+            }
+        },
+        "279": {
+            "link": {
+                "name": "lib\\Compatibility.frag",
+                "file": "default"
+            }
+        },
+        "280": {
+            "link": {
+                "name": "lib\\CoordinateSystems.glsl",
+                "file": "default"
+            }
+        },
+        "281": {
+            "link": {
+                "name": "lib\\GI.frag",
+                "file": "default"
+            }
+        },
+        "282": {
+            "link": {
+                "name": "lib\\Inputs.frag",
+                "file": "default"
+            }
+        },
+        "283": {
+            "link": {
+                "name": "lib\\Lights.frag",
+                "file": "default"
+            }
+        },
+        "284": {
+            "link": {
+                "name": "lib\\Materials.frag",
+                "file": "default"
+            }
+        },
+        "285": {
+            "link": {
+                "name": "lib\\Math.glsl",
+                "file": "default"
+            }
+        },
+        "286": {
+            "link": {
+                "name": "lib\\Packing.frag",
+                "file": "default"
+            }
+        },
+        "287": {
+            "link": {
+                "name": "lib\\Quaternion.glsl",
+                "file": "default"
+            }
+        },
+        "288": {
+            "link": {
+                "name": "lib\\ShaderType.glsl",
+                "file": "default"
+            }
+        },
+        "289": {
+            "link": {
+                "name": "lib\\Slug.frag",
+                "file": "default"
+            }
+        },
+        "290": {
+            "link": {
+                "name": "lib\\Slug.vert",
+                "file": "default"
+            }
+        },
+        "291": {
+            "link": {
+                "name": "lib\\Surface.frag",
+                "file": "default"
+            }
+        },
+        "292": {
+            "link": {
+                "name": "lib\\Textures.frag",
+                "file": "default"
+            }
+        },
+        "293": {
+            "link": {
+                "name": "lib\\Uniforms.glsl",
+                "file": "default"
+            }
         }
     },
     "settings": {
@@ -2786,7 +2882,7 @@
             "version": [
                 1,
                 0,
-                3
+                4
             ]
         },
         "vr": {
@@ -2795,7 +2891,8 @@
         },
         "scripting": {
             "sourcePaths": [
-                "js/"
+                "js/",
+                "../src"
             ],
             "bundlingType": "esbuild",
             "libraryPaths": [
@@ -2904,6 +3001,9 @@
             "link": {
                 "name": "Flat Opaque",
                 "file": "default"
+            },
+            "features": {
+                "ALPHA_MASKED": true
             }
         },
         "35": {
@@ -3001,12 +3101,30 @@
         }
     },
     "files": [
-        "models/oculus-touch-v2-left.glb",
-        "models/oculus-touch-v2-right.glb",
-        "models/hand-left.glb",
-        "models/hand-right.glb",
-        "models/button.glb",
-        "models/teleport-indicator.glb"
+        {
+            "fileName": "models/oculus-touch-v2-left.glb",
+            "importerName": ""
+        },
+        {
+            "fileName": "models/oculus-touch-v2-right.glb",
+            "importerName": ""
+        },
+        {
+            "fileName": "models/hand-left.glb",
+            "importerName": ""
+        },
+        {
+            "fileName": "models/hand-right.glb",
+            "importerName": ""
+        },
+        {
+            "fileName": "models/button.glb",
+            "importerName": ""
+        },
+        {
+            "fileName": "models/teleport-indicator.glb",
+            "importerName": ""
+        }
     ],
     "fonts": {
         "230": {
