@@ -1,0 +1,34 @@
+{
+  "name": "wonderland-spatial-audio",
+  "version": "1.0.0",
+  "description": "Spatial audio component for Wonderland Engine",
+  "wonderlandengine": {},
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WonderlandEngine/wonderland-spatial-audio.git"
+  },
+  "keywords": [
+    "audio"
+  ],
+  "author": "Timothy Hale",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/WonderlandEngine/wonderland-spatial-audio/issues"
+  },
+  "dependencies": {
+    "gl-matrix": "^3.4.3"
+  },
+  "peerDependencies": {
+    "@wonderlandengine/api": "^1.0.0"
+  },
+  "homepage": "https://github.com/WonderlandEngine/wonderland-spatial-audio#readme",
+  "devDependencies": {
+    "esbuild": "^0.17.19",
+    "typescript": "^5.1.3"
+  }
+}
