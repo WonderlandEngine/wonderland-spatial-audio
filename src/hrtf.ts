@@ -196,7 +196,6 @@ function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
     const aziWeight1 = 1 - aziWeight0;
     const aziWeight3 = 1 - aziWeight2;
 
-
     const blockSize = sampleSize + 2;
     const iAL = bufferIndex[0] * blockSize + 2;
     const iAR = (bufferIndex[0] + 1) * blockSize + 2;
@@ -230,10 +229,7 @@ export class HRTFPanner {
     private currentPos: number[];
     private transisitonTime: number;
 
-    constructor(
-        audioContext: AudioContext,
-        sourceNode: GainNode,
-    ) {
+    constructor(audioContext: AudioContext, sourceNode: GainNode) {
         this.audioContext = audioContext;
         this.loPass = this.audioContext.createBiquadFilter();
         this.hiPass = this.audioContext.createBiquadFilter();
@@ -242,15 +238,9 @@ export class HRTFPanner {
         this.hiPass.type = 'highpass';
         this.hiPass.frequency.value = 150;
 
-        this.targetConvolver = new HRTFConvolver(
-            this.audioContext,
-            sampleSize
-        );
+        this.targetConvolver = new HRTFConvolver(this.audioContext, sampleSize);
 
-        this.currentConvolver = new HRTFConvolver(
-            this.audioContext,
-            sampleSize
-        );
+        this.currentConvolver = new HRTFConvolver(this.audioContext, sampleSize);
 
         this.gain = audioContext.createGain();
         this.source = sourceNode;
@@ -320,7 +310,11 @@ class HRTFConvolver {
         this.convolver = audioContext.createConvolver();
         this.convolver.normalize = false;
         this.gainNode = audioContext.createGain();
-        this.convolver.buffer = audioContext.createBuffer(2, bufferSize, audioContext.sampleRate);
+        this.convolver.buffer = audioContext.createBuffer(
+            2,
+            bufferSize,
+            audioContext.sampleRate
+        );
         this.convolver.connect(this.gainNode);
     }
 
