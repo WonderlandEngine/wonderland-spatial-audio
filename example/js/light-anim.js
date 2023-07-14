@@ -18,7 +18,6 @@ export class LightAnim extends Component {
   start() {
     this.lum = 0.0;
     this.audiosrc = this.object.getComponent(AudioSource);
-    console.log(this.audiosrc.audioID);
     this.light = this.object.getComponent(LightComponent);
     this.light.intensity = this.lum;
     this.meshComp = this.object.getComponent(MeshComponent);

@@ -1724,7 +1724,8 @@
                     }
                 },
                 {
-                    "type": "light-anim"
+                    "type": "light-anim",
+                    "active": true
                 },
                 {
                     "type": "light",
@@ -1831,16 +1832,19 @@
                     "type": "audio-source",
                     "audio-source": {
                         "file": "sfx/1.wav"
-                    }
+                    },
+                    "active": true
                 },
                 {
-                    "type": "light-anim"
+                    "type": "light-anim",
+                    "active": true
                 },
                 {
                     "type": "light",
                     "light": {
                         "intensity": 0.7009999
-                    }
+                    },
+                    "active": true
                 }
             ],
             "translation": [
@@ -1876,16 +1880,19 @@
                     "type": "audio-source",
                     "audio-source": {
                         "file": "sfx/1.wav"
-                    }
+                    },
+                    "active": true
                 },
                 {
-                    "type": "light-anim"
+                    "type": "light-anim",
+                    "active": true
                 },
                 {
                     "type": "light",
                     "light": {
                         "intensity": 0.7009999
-                    }
+                    },
+                    "active": true
                 }
             ],
             "translation": [
@@ -1921,16 +1928,19 @@
                     "type": "audio-source",
                     "audio-source": {
                         "file": "sfx/1.wav"
-                    }
+                    },
+                    "active": true
                 },
                 {
-                    "type": "light-anim"
+                    "type": "light-anim",
+                    "active": true
                 },
                 {
                     "type": "light",
                     "light": {
                         "intensity": 0.7009999
-                    }
+                    },
+                    "active": true
                 }
             ],
             "translation": [
@@ -1966,16 +1976,19 @@
                     "type": "audio-source",
                     "audio-source": {
                         "file": "sfx/1.wav"
-                    }
+                    },
+                    "active": true
                 },
                 {
-                    "type": "light-anim"
+                    "type": "light-anim",
+                    "active": true
                 },
                 {
                     "type": "light",
                     "light": {
                         "intensity": 0.7009999
-                    }
+                    },
+                    "active": true
                 }
             ],
             "translation": [
@@ -2011,16 +2024,19 @@
                     "type": "audio-source",
                     "audio-source": {
                         "file": "sfx/1.wav"
-                    }
+                    },
+                    "active": true
                 },
                 {
-                    "type": "light-anim"
+                    "type": "light-anim",
+                    "active": true
                 },
                 {
                     "type": "light",
                     "light": {
                         "intensity": 0.7009999
-                    }
+                    },
+                    "active": true
                 }
             ],
             "translation": [
@@ -2056,16 +2072,19 @@
                     "type": "audio-source",
                     "audio-source": {
                         "file": "sfx/1.wav"
-                    }
+                    },
+                    "active": true
                 },
                 {
-                    "type": "light-anim"
+                    "type": "light-anim",
+                    "active": true
                 },
                 {
                     "type": "light",
                     "light": {
                         "intensity": 0.7009999
-                    }
+                    },
+                    "active": true
                 }
             ],
             "translation": [

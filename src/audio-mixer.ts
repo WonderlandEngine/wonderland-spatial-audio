@@ -36,7 +36,7 @@ export class AudioMixer {
             latencyHint: 'interactive',
             sampleRate: 44100,
         });
-        this.isLoaded = loadHrir('./hrtf_64.bin');
+        this.isLoaded = loadHrir('./hrtf_64.bin', this.audioContext);
         this.audioNodes = [];
         this.sources = [];
     }

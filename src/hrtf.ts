@@ -15,6 +15,7 @@ import {Point, Triangle, Delaunay} from './delaunay.ts';
 let hrir: Float32Array;
 let sortedPoints: number[];
 let sampleSize = -1;
+let pubAudioContext: AudioContext;
 
 function getSampleSizeFromPathName(path: string): number {
     const match = path.match(/\d+/);
@@ -24,7 +25,8 @@ function getSampleSizeFromPathName(path: string): number {
     throw new Error('Sample size could not be identified!');
 }
 
-export async function loadHrir(hrir_path: string): Promise<boolean> {
+export async function loadHrir(hrir_path: string, audioContext): Promise<boolean> {
+    pubAudioContext = audioContext;
     sampleSize = getSampleSizeFromPathName(hrir_path);
     const response = await fetch(hrir_path);
     const buffer = await response.arrayBuffer();
@@ -60,14 +62,16 @@ export async function loadHrir(hrir_path: string): Promise<boolean> {
     return false;
 }
 
-function interpolateHRIR(azimuth: number, elevation: number): [Float32Array, Float32Array] {
+function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
     const elevMin = Math.floor(elevation / 10) * 10;
     const elevMax = elevMin + 10;
 
+    const buffer = pubAudioContext.createBuffer(2, sampleSize, pubAudioContext.sampleRate);
+    const hrirL = buffer.getChannelData(0);
+    const hrirR = buffer.getChannelData(1);
+
     /* Largest height has only 1 measurement */
     if (elevMin === 90) {
-        const hrirL = new Float32Array(sampleSize);
-        const hrirR = new Float32Array(sampleSize);
         const bufferIndexOf90 = sortedPoints[sortedPoints.length - 1];
         const blockSize = sampleSize + 2;
         const iL: number = bufferIndexOf90 * blockSize + 2;
@@ -76,7 +80,7 @@ function interpolateHRIR(azimuth: number, elevation: number): [Float32Array, Flo
             hrirL[i] = hrir[iL + i];
             hrirR[i] = hrir[iR + i];
         }
-        return [hrirL, hrirR];
+        return buffer;
     }
     /* In this case elevMax only has one measurement, so no square of points can be found around our point */
     if (elevMin === 80) {
@@ -84,8 +88,8 @@ function interpolateHRIR(azimuth: number, elevation: number): [Float32Array, Flo
         const aziMax = aziMin === 330 ? 0 : aziMin + 30;
 
         /* Find index of azimuth of two points around requested point */
-        const minPointIndex = (aziMin / 30) * 3 - 4;
-        const maxPointIndex = (aziMax / 30) * 3 - 4;
+        const minPointIndex = (aziMin / 30) * 3 + 4;
+        const maxPointIndex = (aziMax / 30) * 3 + 4;
 
         const bufferIndexMin = sortedPoints[sortedPoints.length - minPointIndex];
         const bufferIndexMax = sortedPoints[sortedPoints.length - maxPointIndex];
@@ -96,8 +100,6 @@ function interpolateHRIR(azimuth: number, elevation: number): [Float32Array, Flo
         const elevWeight2 = 1 - elevWeight1;
         const aziWeight1 = 1 - aziWeight0;
 
-        const hrirL = new Float32Array(sampleSize);
-        const hrirR = new Float32Array(sampleSize);
         const bufferIndexOf90 = sortedPoints[sortedPoints.length - 1];
         const blockSize = sampleSize + 2;
         const iL: number = bufferIndexOf90 * blockSize + 2;
@@ -114,7 +116,7 @@ function interpolateHRIR(azimuth: number, elevation: number): [Float32Array, Flo
                 elevWeight2 * hrir[iR + i] +
                 elevWeight1 * (aziWeight0 * hrir[iMinR] + aziWeight1 * hrir[iMaxR]);
         }
-        return [hrirL, hrirR];
+        return buffer;
     }
 
     const bufferIndex = [-1, -1, -1, -1];
@@ -185,8 +187,8 @@ function interpolateHRIR(azimuth: number, elevation: number): [Float32Array, Flo
     }
 
     /* Calculate the weighting of each one of the four points */
-    const aziSpace = foundAzi[1] - foundAzi[0];
-    const aziSpace2 = foundAzi[3] - foundAzi[2];
+    const aziSpace = Math.abs(foundAzi[1] - foundAzi[0]);
+    const aziSpace2 = Math.abs(foundAzi[3] - foundAzi[2]);
     const elevWeight1 = (elevation - elevMin) / 10;
     const aziWeight0 = (azimuth - foundAzi[0]) / aziSpace;
     const aziWeight2 = (azimuth - foundAzi[2]) / aziSpace2;
@@ -194,9 +196,8 @@ function interpolateHRIR(azimuth: number, elevation: number): [Float32Array, Flo
     const aziWeight1 = 1 - aziWeight0;
     const aziWeight3 = 1 - aziWeight2;
 
+
     const blockSize = sampleSize + 2;
-    const hrirL = new Float32Array(sampleSize);
-    const hrirR = new Float32Array(sampleSize);
     const iAL = bufferIndex[0] * blockSize + 2;
     const iAR = (bufferIndex[0] + 1) * blockSize + 2;
     const iBL = bufferIndex[1] * blockSize + 2;
@@ -214,11 +215,11 @@ function interpolateHRIR(azimuth: number, elevation: number): [Float32Array, Flo
             elevWeight1 * (aziWeight0 * hrir[iAR + i] + aziWeight1 * hrir[iBR + i]) +
             elevWeight2 * (aziWeight2 * hrir[iCR + i] + aziWeight3 * hrir[iDR + i]);
     }
-    return [hrirL, hrirR];
+    return buffer;
 }
 
 export class HRTFPanner {
-    private readonly crossfadeDuration: number = 25 / 1000;
+    private readonly crossfadeDuration: number = 10 / 1000;
     private readonly source: GainNode;
     private readonly hiPass: BiquadFilterNode;
     private readonly loPass: BiquadFilterNode;
@@ -278,16 +279,16 @@ export class HRTFPanner {
         if (
             (Math.abs(this.currentPos[0] - azimuth) < 0.1 &&
                 Math.abs(this.currentPos[1] - elevation) < 0.1) ||
-            this.transisitonTime > this.audioContext.currentTime
+            this.transisitonTime >= this.audioContext.currentTime
         )
             return;
 
-        this.targetConvolver.fillBuffer(
-            interpolateHRIR(azimuth, elevation)
-        );
+        this.hiPass.disconnect(this.targetConvolver.convolver);
+        this.targetConvolver.renewConvolver(interpolateHRIR(azimuth, elevation));
+        this.hiPass.connect(this.targetConvolver.convolver);
 
         /* Adding 1ms ensures both fades start at the same time */
-        this.transisitonTime = this.audioContext.currentTime + 1 / 1000;
+        this.transisitonTime = this.audioContext.currentTime;
         this.targetConvolver.gainNode.gain.setValueAtTime(0, this.transisitonTime);
         this.targetConvolver.gainNode.gain.linearRampToValueAtTime(
             1,
@@ -313,28 +314,22 @@ export class HRTFPanner {
 
 class HRTFConvolver {
     public convolver: ConvolverNode;
-    public buffer: AudioBuffer;
     public gainNode: GainNode;
 
     constructor(audioContext: AudioContext, bufferSize: number) {
-        this.buffer = audioContext.createBuffer(2, bufferSize, audioContext.sampleRate);
         this.convolver = audioContext.createConvolver();
         this.convolver.normalize = false;
-        this.convolver.buffer = this.buffer;
         this.gainNode = audioContext.createGain();
-
+        this.convolver.buffer = audioContext.createBuffer(2, bufferSize, audioContext.sampleRate);
         this.convolver.connect(this.gainNode);
     }
 
-    public fillBuffer(iR: [Float32Array, Float32Array] | undefined) {
-        if (iR === undefined) return;
-        let bufferL = this.buffer.getChannelData(0);
-        let bufferR = this.buffer.getChannelData(1);
-        for (let i = 0; i < this.buffer.length; ++i) {
-            bufferL[i] = iR[0][i];
-            bufferR[i] = iR[1][i];
-        }
-        this.convolver.buffer = this.buffer;
+    public renewConvolver(buf: AudioBuffer): void {
+        this.convolver.disconnect(this.gainNode);
+        this.convolver = pubAudioContext.createConvolver();
+        this.convolver.normalize = false;
+        this.convolver.buffer = buf;
+        this.convolver.connect(this.gainNode);
     }
 }
 
