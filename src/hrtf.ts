@@ -3,7 +3,6 @@
  *
  * Translated to TypeScript and using [MIT HRTF measurements](https://sound.media.mit.edu/resources/KEMAR.html)
  */
-import {Point, Triangle, Delaunay} from './delaunay.ts';
 
 /**
  * Constants
