@@ -4,9 +4,14 @@
  * Translated to TypeScript and using [MIT HRTF measurements](https://sound.media.mit.edu/resources/KEMAR.html)
  */
 
+import {_audioContext as audioContext, CONV_FREQ} from './audio-mixer.ts';
+
 /**
  * Constants
  */
+// @todo: increase crossfade to the max value that is still not noticeable
+const CROSSFADE_DUR = 10 / 1000;
+const THRESHOLD: number = 0.1;
 
 /**
  * Variables
@@ -14,7 +19,6 @@
 let hrir: Float32Array;
 let sortedPoints: number[];
 let sampleSize = -1;
-let pubAudioContext: AudioContext;
 
 function getSampleSizeFromPathName(path: string): number {
     const match = path.match(/\d+/);
@@ -24,8 +28,7 @@ function getSampleSizeFromPathName(path: string): number {
     throw new Error('Sample size could not be identified!');
 }
 
-export async function loadHrir(hrir_path: string, audioContext): Promise<boolean> {
-    pubAudioContext = audioContext;
+export async function loadHrir(hrir_path: string): Promise<boolean> {
     sampleSize = getSampleSizeFromPathName(hrir_path);
     const response = await fetch(hrir_path);
     const buffer = await response.arrayBuffer();
@@ -65,7 +68,7 @@ function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
     const elevMin = Math.floor(elevation / 10) * 10;
     const elevMax = elevMin + 10;
 
-    const buffer = pubAudioContext.createBuffer(2, sampleSize, pubAudioContext.sampleRate);
+    const buffer = audioContext.createBuffer(2, sampleSize, audioContext.sampleRate);
     const hrirL = buffer.getChannelData(0);
     const hrirR = buffer.getChannelData(1);
 
@@ -124,9 +127,10 @@ function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
 
     /* Run through all available points until finding the 4 closest points
      * around the request point. */
-    for (let i = 0; i < arrayLength; i += 3) {
+    let i = 0;
+    for (i; i < arrayLength; i += 3) {
         /* Find two hrir measurements surrounding and below the requested one */
-        if (foundAzi[0] === -1 && sortedPoints[i] === elevMin) {
+        if (sortedPoints[i] === elevMin) {
             /* Special case where the azimuth is in the range between 355 and 0 */
             if (azimuth >= sortedPoints[i + 1]) {
                 bufferIndex[0] = sortedPoints[i + 2];
@@ -139,6 +143,7 @@ function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
                         break;
                     }
                 }
+                break;
             } else {
                 for (let j = i + 4; j < arrayLength; j += 3) {
                     /* Find pos of correct azimuth */
@@ -151,8 +156,11 @@ function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
                         break;
                     }
                 }
+                break;
             }
         }
+    }
+    for (i; i < arrayLength; i += 3) {
         /* Find two hrir measurements surrounding and above the requested one */
         if (sortedPoints[i] === elevMax) {
             /* Special case where the azimuth is in the range between 355 and 0 */
@@ -217,44 +225,33 @@ function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
 }
 
 export class HRTFPanner {
-    private readonly crossfadeDuration: number = 10 / 1000;
     private readonly source: GainNode;
     private readonly hiPass: BiquadFilterNode;
-    private readonly loPass: BiquadFilterNode;
-    private readonly audioContext: AudioContext;
+    private readonly lastPos: number[];
     private targetConvolver: HRTFConvolver;
     private currentConvolver: HRTFConvolver;
-    private gain: GainNode;
-    private currentPos: number[];
-    private transisitonTime: number;
+    private endOfTransition: number;
 
-    constructor(audioContext: AudioContext, sourceNode: GainNode) {
-        this.audioContext = audioContext;
-        this.loPass = this.audioContext.createBiquadFilter();
-        this.hiPass = this.audioContext.createBiquadFilter();
-        this.loPass.type = 'lowpass';
-        this.loPass.frequency.value = 150;
+    constructor(sourceNode: GainNode) {
+        this.hiPass = audioContext.createBiquadFilter();
         this.hiPass.type = 'highpass';
-        this.hiPass.frequency.value = 150;
+        this.hiPass.frequency.value = CONV_FREQ;
 
-        this.targetConvolver = new HRTFConvolver(this.audioContext, sampleSize);
+        this.targetConvolver = new HRTFConvolver();
+        this.currentConvolver = new HRTFConvolver();
 
-        this.currentConvolver = new HRTFConvolver(this.audioContext, sampleSize);
-
-        this.gain = audioContext.createGain();
         this.source = sourceNode;
         this.source.channelCount = 1;
-        this.source.connect(this.loPass);
         this.source.connect(this.hiPass);
         this.hiPass.connect(this.currentConvolver.convolver);
         this.hiPass.connect(this.targetConvolver.convolver);
-        this.loPass.connect(this.audioContext.destination);
-        this.currentConvolver.gainNode.connect(this.gain);
-        this.targetConvolver.gainNode.connect(this.gain);
-        this.gain.connect(this.audioContext.destination);
+        this.currentConvolver.fadeGain.connect(audioContext.destination);
+        this.targetConvolver.fadeGain.connect(audioContext.destination);
 
-        this.currentPos = [];
-        this.transisitonTime = this.audioContext.currentTime;
+
+        /* lastPos cant be undefined, otherwise the first update() will fail */
+        this.lastPos = [999, 999];
+        this.endOfTransition = audioContext.currentTime;
     }
 
     /**
@@ -264,65 +261,65 @@ export class HRTFPanner {
      * @param elevation Position of the new location.
      */
     public update(azimuth: number, elevation: number): void {
-        /* Skip if the position didn't change or there is still a crossfade going on */
+        /* Skip if the position didn't change enough or there is still a crossfade going on */
         if (
-            (Math.abs(this.currentPos[0] - azimuth) < 0.1 &&
-                Math.abs(this.currentPos[1] - elevation) < 0.1) ||
-            this.transisitonTime >= this.audioContext.currentTime
-        )
-            return;
+            this.endOfTransition < audioContext.currentTime &&
+            (Math.abs(this.lastPos[0] - azimuth) > THRESHOLD ||
+                Math.abs(this.lastPos[1] - elevation) > THRESHOLD)
+        ) {
+            this.hiPass.disconnect(this.targetConvolver.convolver);
+            this.targetConvolver.replaceConvolverNode(interpolateHRIR(azimuth, elevation));
+            this.hiPass.connect(this.targetConvolver.convolver);
 
-        this.hiPass.disconnect(this.targetConvolver.convolver);
-        this.targetConvolver.renewConvolver(interpolateHRIR(azimuth, elevation));
-        this.hiPass.connect(this.targetConvolver.convolver);
+            /* Adding 1ms ensures both fades start at the same time */
+            const currTime = audioContext.currentTime;
+            this.endOfTransition = currTime + CROSSFADE_DUR;
+            this.targetConvolver.fadeGain.gain.setValueAtTime(0, currTime);
+            this.targetConvolver.fadeGain.gain.linearRampToValueAtTime(
+                1,
+                this.endOfTransition
+            );
+            this.currentConvolver.fadeGain.gain.setValueAtTime(1, currTime);
+            this.currentConvolver.fadeGain.gain.linearRampToValueAtTime(
+                0,
+                this.endOfTransition
+            );
 
-        /* Adding 1ms ensures both fades start at the same time */
-        this.transisitonTime = this.audioContext.currentTime;
-        this.targetConvolver.gainNode.gain.setValueAtTime(0, this.transisitonTime);
-        this.targetConvolver.gainNode.gain.linearRampToValueAtTime(
-            1,
-            this.transisitonTime + this.crossfadeDuration
-        );
-        this.currentConvolver.gainNode.gain.setValueAtTime(1, this.transisitonTime);
-        this.currentConvolver.gainNode.gain.linearRampToValueAtTime(
-            0,
-            this.transisitonTime + this.crossfadeDuration
-        );
-        this.transisitonTime += this.crossfadeDuration;
+            /* Swap convolvers */
+            let t = this.targetConvolver;
+            this.targetConvolver = this.currentConvolver;
+            this.currentConvolver = t;
 
-        /* Swap convolvers */
-        let t = this.targetConvolver;
-        this.targetConvolver = this.currentConvolver;
-        this.currentConvolver = t;
-
-        /* Save the current position */
-        this.currentPos[0] = azimuth;
-        this.currentPos[1] = elevation;
+            /* Save the current position */
+            this.lastPos[0] = azimuth;
+            this.lastPos[1] = elevation;
+        }
+        return;
     }
 }
 
 class HRTFConvolver {
     public convolver: ConvolverNode;
-    public gainNode: GainNode;
+    public fadeGain: GainNode;
 
-    constructor(audioContext: AudioContext, bufferSize: number) {
+    constructor() {
         this.convolver = audioContext.createConvolver();
         this.convolver.normalize = false;
-        this.gainNode = audioContext.createGain();
+        this.fadeGain = audioContext.createGain();
         this.convolver.buffer = audioContext.createBuffer(
             2,
-            bufferSize,
+            sampleSize,
             audioContext.sampleRate
         );
-        this.convolver.connect(this.gainNode);
+        this.convolver.connect(this.fadeGain);
     }
 
-    public renewConvolver(buf: AudioBuffer): void {
-        this.convolver.disconnect(this.gainNode);
-        this.convolver = pubAudioContext.createConvolver();
+    public replaceConvolverNode(buf: AudioBuffer): void {
+        this.convolver.disconnect(this.fadeGain);
+        this.convolver = audioContext.createConvolver();
         this.convolver.normalize = false;
         this.convolver.buffer = buf;
-        this.convolver.connect(this.gainNode);
+        this.convolver.connect(this.fadeGain);
     }
 }
 
@@ -332,9 +329,9 @@ class HRTFConvolver {
  * @note This is NOT a standard conversion! It is modified,
  *  to respect the hrtf measurements, used in this project.
  *
- * @param x1 - axis that passes through the ears from left to right
- * @param x2 - axis that passes "between the eyes" and points ahead
- * @param x3 - axis that points "up"
+ * @param x - axis that passes through the ears from left to right
+ * @param y - axis that passes "between the eyes" and points ahead
+ * @param z - axis that points "up"
  *
  * @returns azimuth and elevation in degrees.
  */
@@ -343,8 +340,8 @@ export function cartesianToInteraural(
     y: number,
     z: number
 ): {azimuth: number; elevation: number} {
-    let azimuth = Math.atan2(y, x);
-    const horizontalDistance = Math.sqrt(x ** 2 + y ** 2);
+    const azimuth = Math.atan2(y, x);
+    const horizontalDistance = Math.sqrt(x * x + y * y);
     const elevation = Math.atan2(z, horizontalDistance);
 
     /* Convert to degrees and modify to fit HRIR */

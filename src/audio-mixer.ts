@@ -10,20 +10,35 @@ import {Object3D} from '@wonderlandengine/api';
 import {HRTFPanner, cartesianToInteraural, loadHrir} from './hrtf.ts';
 import {vec3} from 'gl-matrix';
 
+/**
+ * Constants
+ */
 const tempVec: Float32Array = new Float32Array(3);
+const HRTF_BIN: string = './hrtf_64.bin';
+const INIT_GAIN = 0.3;
 
+export const CONV_FREQ: number = 150;
+
+let _audioContext: AudioContext = null!;
+if (window.AudioContext !== undefined) {
+    _audioContext = new AudioContext({
+        latencyHint: 'interactive',
+        sampleRate: 44100,
+    });
+}
+
+export {_audioContext};
 /**
  * Manages the audio resources of one wonderland project.
  *
  * @note Use the getAudioMixer() function to get access to it.
  */
 export class AudioMixer {
-    private readonly INIT_GAIN: number = 0.3;
-    private readonly audioContext: AudioContext;
     private listener: Object3D | undefined;
     private sources: [AudioBuffer, HRTFPanner, GainNode][];
     private audioNodes: (AudioBufferSourceNode | undefined)[];
     private isLoaded: Promise<boolean>;
+    private lowPass: BiquadFilterNode;
 
     /**
      * Create a new AudioMixer instance.
@@ -32,11 +47,15 @@ export class AudioMixer {
      *
      */
     constructor() {
-        this.audioContext = new AudioContext({
-            latencyHint: 'interactive',
-            sampleRate: 44100,
-        });
-        this.isLoaded = loadHrir('./hrtf_64.bin', this.audioContext);
+        this.isLoaded = loadHrir(HRTF_BIN);
+
+        /* Low frequencies do not get convoluted with Hrir,
+         * so every source gets passed through the same LowPass filter */
+        this.lowPass = _audioContext.createBiquadFilter();
+        this.lowPass.type = 'lowpass';
+        this.lowPass.frequency.value = CONV_FREQ;
+        this.lowPass.connect(_audioContext.destination);
+
         this.audioNodes = [];
         this.sources = [];
     }
@@ -62,9 +81,10 @@ export class AudioMixer {
      */
     async addSource(audioFile: string, position: Float32Array): Promise<number> {
         const audioData: AudioBuffer = await this.getAudioData(audioFile);
-        const gainNode: GainNode = this.audioContext.createGain();
-        gainNode.gain.value = this.INIT_GAIN;
-        const panner = new HRTFPanner(this.audioContext, gainNode);
+        const gainNode: GainNode = _audioContext.createGain();
+        gainNode.connect(this.lowPass);
+        gainNode.gain.value = INIT_GAIN;
+        const panner = new HRTFPanner(gainNode);
 
         const sourceId = this.sources.length;
         this.sources.push([audioData, panner, gainNode]);
@@ -91,12 +111,11 @@ export class AudioMixer {
         }
 
         /* Figure out relative object position to the listener */
-        const relativePosition = new Float32Array(3);
-        this.listener.transformPointInverseWorld(relativePosition, position);
+        this.listener.transformPointInverseWorld(tempVec, position);
         const cords = cartesianToInteraural(
-            relativePosition[0],
-            relativePosition[2],
-            relativePosition[1]
+            tempVec[0],
+            tempVec[2],
+            tempVec[1]
         );
 
         /* Update the panners position */
@@ -124,7 +143,7 @@ export class AudioMixer {
         if (sourceId >= this.sources.length) {
             return;
         }
-        const audioNode: AudioBufferSourceNode = this.audioContext.createBufferSource();
+        const audioNode: AudioBufferSourceNode = _audioContext.createBufferSource();
         this.audioNodes[sourceId] = audioNode;
         audioNode.connect(this.sources[sourceId][2]);
         audioNode.buffer = this.sources[sourceId][0];
@@ -156,7 +175,7 @@ export class AudioMixer {
     private async getAudioData(file: string): Promise<AudioBuffer> {
         const response = await fetch(file);
         const buffer = await response.arrayBuffer();
-        return this.audioContext.decodeAudioData(buffer);
+        return _audioContext.decodeAudioData(buffer);
     }
 
     get sourcesCount(): number {
