@@ -64,13 +64,11 @@ export async function loadHrir(hrir_path: string): Promise<boolean> {
     return false;
 }
 
-function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
+function interpolateHRIR(azimuth: number, elevation: number, out: [Float32Array, Float32Array]): void {
     const elevMin = Math.floor(elevation / 10) * 10;
     const elevMax = elevMin + 10;
 
-    const buffer = audioContext.createBuffer(2, sampleSize, audioContext.sampleRate);
-    const hrirL = buffer.getChannelData(0);
-    const hrirR = buffer.getChannelData(1);
+
 
     /* Largest height has only 1 measurement */
     if (elevMin === 90) {
@@ -79,10 +77,10 @@ function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
         const iL: number = bufferIndexOf90 * blockSize + 2;
         const iR: number = (bufferIndexOf90 + 1) * blockSize + 2;
         for (let i = 0; i < sampleSize; ++i) {
-            hrirL[i] = hrir[iL + i];
-            hrirR[i] = hrir[iR + i];
+            out[0][i] = hrir[iL + i];
+            out[1][i] = hrir[iR + i];
         }
-        return buffer;
+        return;
     }
     /* In this case elevMax only has one measurement, so no square of points can be found around our point */
     if (elevMin === 80) {
@@ -111,14 +109,14 @@ function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
         const iMaxL: number = bufferIndexMax * blockSize + 2;
         const iMaxR: number = (bufferIndexMax + 1) * blockSize + 2;
         for (let i = 0; i < sampleSize; ++i) {
-            hrirL[i] =
+            out[0][i] =
                 elevWeight2 * hrir[iL + i] +
                 elevWeight1 * (aziWeight0 * hrir[iMinL] + aziWeight1 * hrir[iMaxL]);
-            hrirR[i] =
+            out[1][i] =
                 elevWeight2 * hrir[iR + i] +
                 elevWeight1 * (aziWeight0 * hrir[iMinR] + aziWeight1 * hrir[iMaxR]);
         }
-        return buffer;
+        return;
     }
 
     const bufferIndex = [-1, -1, -1, -1];
@@ -214,14 +212,14 @@ function interpolateHRIR(azimuth: number, elevation: number): AudioBuffer {
     const iDR = (bufferIndex[3] + 1) * blockSize + 2;
 
     for (let i = 0; i < sampleSize; ++i) {
-        hrirL[i] =
+        out[0][i] =
             elevWeight1 * (aziWeight0 * hrir[iAL + i] + aziWeight1 * hrir[iBL + i]) +
             elevWeight2 * (aziWeight2 * hrir[iCL + i] + aziWeight3 * hrir[iDL + i]);
-        hrirR[i] =
+        out[1][i] =
             elevWeight1 * (aziWeight0 * hrir[iAR + i] + aziWeight1 * hrir[iBR + i]) +
             elevWeight2 * (aziWeight2 * hrir[iCR + i] + aziWeight3 * hrir[iDR + i]);
     }
-    return buffer;
+    return;
 }
 
 export class HRTFPanner {
@@ -231,8 +229,10 @@ export class HRTFPanner {
     private targetConvolver: HRTFConvolver;
     private currentConvolver: HRTFConvolver;
     private endOfTransition: number;
+    public hrir: [Float32Array, Float32Array];
 
     constructor(sourceNode: GainNode) {
+        this.hrir = [new Float32Array(sampleSize), new Float32Array(sampleSize)];
         this.hiPass = audioContext.createBiquadFilter();
         this.hiPass.type = 'highpass';
         this.hiPass.frequency.value = CONV_FREQ;
@@ -267,9 +267,8 @@ export class HRTFPanner {
             (Math.abs(this.lastPos[0] - azimuth) > THRESHOLD ||
                 Math.abs(this.lastPos[1] - elevation) > THRESHOLD)
         ) {
-            this.hiPass.disconnect(this.targetConvolver.convolver);
-            this.targetConvolver.replaceConvolverNode(interpolateHRIR(azimuth, elevation));
-            this.hiPass.connect(this.targetConvolver.convolver);
+            interpolateHRIR(azimuth, elevation, this.hrir);
+            this.targetConvolver.fillBuffer(this.hrir);
 
             /* Adding 1ms ensures both fades start at the same time */
             const currTime = audioContext.currentTime;
@@ -301,25 +300,25 @@ export class HRTFPanner {
 class HRTFConvolver {
     public convolver: ConvolverNode;
     public fadeGain: GainNode;
+    public buffer: AudioBuffer;
 
     constructor() {
         this.convolver = audioContext.createConvolver();
         this.convolver.normalize = false;
         this.fadeGain = audioContext.createGain();
-        this.convolver.buffer = audioContext.createBuffer(
+        this.buffer = audioContext.createBuffer(
             2,
             sampleSize,
             audioContext.sampleRate
         );
+        this.convolver.buffer = this.buffer;
         this.convolver.connect(this.fadeGain);
     }
 
-    public replaceConvolverNode(buf: AudioBuffer): void {
-        this.convolver.disconnect(this.fadeGain);
-        this.convolver = audioContext.createConvolver();
-        this.convolver.normalize = false;
-        this.convolver.buffer = buf;
-        this.convolver.connect(this.fadeGain);
+    public fillBuffer(buf: [Float32Array, Float32Array]): void {
+        this.buffer.copyToChannel(buf[0], 0);
+        this.buffer.copyToChannel(buf[1], 1);
+        this.convolver.buffer = this.buffer;
     }
 }
 
