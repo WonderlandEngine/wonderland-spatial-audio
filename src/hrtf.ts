@@ -12,6 +12,7 @@ import {_audioContext as audioContext, CONV_FREQ} from './audio-mixer.ts';
 // @todo: increase crossfade to the max value that is still not noticeable
 const CROSSFADE_DUR = 10 / 1000;
 const THRESHOLD: number = 0.1;
+const EIGHTY_PI = 180 / Math.PI;
 
 /**
  * Variables
@@ -70,7 +71,7 @@ function interpolateHRIR(azimuth: number, elevation: number, out: [Float32Array,
 
 
 
-    /* Largest height has only 1 measurement */
+    /* Largest elevation only has 1 measurement */
     if (elevMin === 90) {
         const bufferIndexOf90 = sortedPoints[sortedPoints.length - 1];
         const blockSize = sampleSize + 2;
@@ -339,17 +340,17 @@ export function cartesianToInteraural(
     y: number,
     z: number
 ): {azimuth: number; elevation: number} {
-    const azimuth = Math.atan2(y, x);
     const horizontalDistance = Math.sqrt(x * x + y * y);
+    const azimuth = Math.atan2(y, x);
     const elevation = Math.atan2(z, horizontalDistance);
 
     /* Convert to degrees and modify to fit HRIR */
-    let azimuthDegrees = azimuth * (180 / Math.PI) + 90;
+    let azimuthDegrees = azimuth * EIGHTY_PI + 90;
     if (azimuthDegrees < 0) {
         azimuthDegrees = 360 + azimuthDegrees;
     }
     // @todo: Check if elevation needs modification.
-    let elevationDegrees = elevation * (180 / Math.PI);
+    let elevationDegrees = elevation * EIGHTY_PI;
     if (elevationDegrees < -40) elevationDegrees = -40;
     return {azimuth: azimuthDegrees, elevation: elevationDegrees};
 }

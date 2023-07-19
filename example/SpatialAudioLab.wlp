@@ -1613,8 +1613,8 @@
             ],
             "translation": [
                 -2.4711937,
-                0.5657048,
-                -0.8187842
+                0.5659394,
+                -0.8187841
             ],
             "rotation": [
                 0.0,
@@ -1638,7 +1638,7 @@
                     "type": "button",
                     "button": {
                         "buttonLight": null,
-                        "audioObject": "247"
+                        "audioObject": null
                     },
                     "active": true
                 },
@@ -1657,6 +1657,14 @@
                             ]
                         }
                     }
+                },
+                {
+                    "type": "ball-spawner",
+                    "ball-spawner": {
+                        "ballCount": 50,
+                        "mesh": "9",
+                        "mat": "249"
+                    }
                 }
             ],
             "translation": [
@@ -1674,81 +1682,6 @@
                 0.4999988,
                 0.1010007,
                 0.4999766
-            ]
-        },
-        "244": {
-            "name": "Light",
-            "components": [
-                {
-                    "type": "light",
-                    "light": {
-                        "shadows": true,
-                        "type": "sun"
-                    },
-                    "active": false
-                }
-            ],
-            "translation": [
-                -3.1676745,
-                2.7665519,
-                0.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "scaling": [
-                1.0,
-                1.0,
-                1.0
-            ],
-            "parent": null
-        },
-        "247": {
-            "name": "Ball",
-            "components": [
-                {
-                    "type": "mesh",
-                    "mesh": {
-                        "mesh": "9",
-                        "material": "249"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "audio-source",
-                    "audio-source": {
-                        "file": "sfx/1.wav"
-                    }
-                },
-                {
-                    "type": "light-anim",
-                    "active": true
-                },
-                {
-                    "type": "light",
-                    "light": {
-                        "intensity": 0.7009999
-                    }
-                }
-            ],
-            "translation": [
-                -10.5812273,
-                1.4112277,
-                -7.5462946
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "scaling": [
-                0.5,
-                0.5,
-                0.5
             ]
         },
         "251": {
@@ -1816,294 +1749,6 @@
                 1.0,
                 1.0
             ]
-        },
-        "272": {
-            "name": "Ball",
-            "components": [
-                {
-                    "type": "mesh",
-                    "mesh": {
-                        "mesh": "9",
-                        "material": "249"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "audio-source",
-                    "audio-source": {
-                        "file": "sfx/1.wav"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "light-anim",
-                    "active": true
-                },
-                {
-                    "type": "light",
-                    "light": {
-                        "intensity": 0.7009999
-                    },
-                    "active": true
-                }
-            ],
-            "translation": [
-                9.5701322,
-                1.4112277,
-                -10.7598772
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "scaling": [
-                0.5,
-                0.5,
-                0.5
-            ],
-            "parent": null
-        },
-        "273": {
-            "name": "Ball",
-            "components": [
-                {
-                    "type": "mesh",
-                    "mesh": {
-                        "mesh": "9",
-                        "material": "249"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "audio-source",
-                    "audio-source": {
-                        "file": "sfx/1.wav"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "light-anim",
-                    "active": true
-                },
-                {
-                    "type": "light",
-                    "light": {
-                        "intensity": 0.7009999
-                    },
-                    "active": true
-                }
-            ],
-            "translation": [
-                1.2758204,
-                3.7724397,
-                1.1795828
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "scaling": [
-                0.5,
-                0.5,
-                0.5
-            ],
-            "parent": null
-        },
-        "274": {
-            "name": "Ball",
-            "components": [
-                {
-                    "type": "mesh",
-                    "mesh": {
-                        "mesh": "9",
-                        "material": "249"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "audio-source",
-                    "audio-source": {
-                        "file": "sfx/1.wav"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "light-anim",
-                    "active": true
-                },
-                {
-                    "type": "light",
-                    "light": {
-                        "intensity": 0.7009999
-                    },
-                    "active": true
-                }
-            ],
-            "translation": [
-                -8.1435928,
-                2.7771158,
-                12.7565307
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "scaling": [
-                0.5,
-                0.5,
-                0.5
-            ],
-            "parent": null
-        },
-        "275": {
-            "name": "Ball",
-            "components": [
-                {
-                    "type": "mesh",
-                    "mesh": {
-                        "mesh": "9",
-                        "material": "249"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "audio-source",
-                    "audio-source": {
-                        "file": "sfx/1.wav"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "light-anim",
-                    "active": true
-                },
-                {
-                    "type": "light",
-                    "light": {
-                        "intensity": 0.7009999
-                    },
-                    "active": true
-                }
-            ],
-            "translation": [
-                10.6951484,
-                1.3252279,
-                12.7565307
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "scaling": [
-                0.5,
-                0.5,
-                0.5
-            ],
-            "parent": null
-        },
-        "276": {
-            "name": "Ball",
-            "components": [
-                {
-                    "type": "mesh",
-                    "mesh": {
-                        "mesh": "9",
-                        "material": "249"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "audio-source",
-                    "audio-source": {
-                        "file": "sfx/1.wav"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "light-anim",
-                    "active": true
-                },
-                {
-                    "type": "light",
-                    "light": {
-                        "intensity": 0.7009999
-                    },
-                    "active": true
-                }
-            ],
-            "translation": [
-                10.6951484,
-                3.9017519,
-                4.999876
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "scaling": [
-                0.5,
-                0.5,
-                0.5
-            ],
-            "parent": null
-        },
-        "277": {
-            "name": "Ball",
-            "components": [
-                {
-                    "type": "mesh",
-                    "mesh": {
-                        "mesh": "9",
-                        "material": "249"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "audio-source",
-                    "audio-source": {
-                        "file": "sfx/1.wav"
-                    },
-                    "active": true
-                },
-                {
-                    "type": "light-anim",
-                    "active": true
-                },
-                {
-                    "type": "light",
-                    "light": {
-                        "intensity": 0.7009999
-                    },
-                    "active": true
-                }
-            ],
-            "translation": [
-                -15.7246055,
-                5.6119441,
-                4.999876
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "scaling": [
-                0.5,
-                0.5,
-                0.5
-            ],
-            "parent": null
         }
     },
     "meshes": {
@@ -2673,7 +2318,8 @@
                     1.0,
                     1.0,
                     1.0
-                ]
+                ],
+                "alphaMaskThreshold": 1.0
             }
         }
     },
@@ -3119,32 +2765,32 @@
             }
         }
     },
-    "files": [
-        {
+    "files": {
+        "309": {
             "fileName": "models/oculus-touch-v2-left.glb",
             "importerName": ""
         },
-        {
+        "310": {
             "fileName": "models/oculus-touch-v2-right.glb",
             "importerName": ""
         },
-        {
+        "311": {
             "fileName": "models/hand-left.glb",
             "importerName": ""
         },
-        {
+        "312": {
             "fileName": "models/hand-right.glb",
             "importerName": ""
         },
-        {
+        "313": {
             "fileName": "models/button.glb",
             "importerName": ""
         },
-        {
+        "314": {
             "fileName": "models/teleport-indicator.glb",
             "importerName": ""
         }
-    ],
+    },
     "fonts": {
         "230": {
             "link": {

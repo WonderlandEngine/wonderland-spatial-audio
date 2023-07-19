@@ -19,11 +19,10 @@ import {MouseLookComponent} from '@wonderlandengine/components';
 import {PlayerHeight} from '@wonderlandengine/components';
 import {TeleportComponent} from '@wonderlandengine/components';
 import {VrModeActiveSwitch} from '@wonderlandengine/components';
-import {AudioSource as AudioSource1} from './../../src/source.js';
 import {Listener} from './../../src/listener.js';
+import {BallSpawner} from './ball-spawner.js';
 import {ButtonComponent} from './button.js';
 import {HoveringAnim} from './hovering-anim.js';
-import {LightAnim} from './light-anim.js';
 /* wle:auto-imports:end */
 
 import { loadRuntime } from "@wonderlandengine/api";
@@ -93,11 +92,10 @@ engine.registerComponent(MouseLookComponent);
 engine.registerComponent(PlayerHeight);
 engine.registerComponent(TeleportComponent);
 engine.registerComponent(VrModeActiveSwitch);
-engine.registerComponent(AudioSource1);
 engine.registerComponent(Listener);
+engine.registerComponent(BallSpawner);
 engine.registerComponent(ButtonComponent);
 engine.registerComponent(HoveringAnim);
-engine.registerComponent(LightAnim);
 /* wle:auto-register:end */
 
 engine.scene.load(`${Constants.ProjectName}.bin`);

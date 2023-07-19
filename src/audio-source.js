@@ -9,18 +9,18 @@ const tempVec = new Float32Array(3);
 export class AudioSource extends Component {
   static TypeName = "audio-source";
   static Properties = {
-    file: Property.string(),
-  };
+    audioFile: Property.string(null)
+  }
 
   onEnded = new Emitter();
 
   async start() {
-    const rand = Math.floor(Math.random() * 4) + 1;
     this.audioID = await getAudioMixer().addSource(
-      "sfx/" + rand + ".wav",
+        this.audioFile,
       this.object.getPositionWorld(tempVec)
     );
     this.update = this._update.bind(this);
+
   }
 
   play() {
