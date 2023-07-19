@@ -58,9 +58,16 @@ export class BallSpawner extends Component {
             tempVec[0] = Math.random() * 40 - 20;
             tempVec[1] = Math.random() * 6 + 1;
             tempVec[2] = Math.random() * 40 - 20;
-            o.setPositionWorld(tempVec);
-            o.active = true;
-            o.getComponent(AudioSource).play();
+            const audio = o.getComponent(AudioSource);
+            if(audio.isPlaying()) {
+               audio.stop();
+                o.active = false;
+            } else {
+                o.setPositionWorld(tempVec);
+                audio.play();
+                o.active = true;
+            }
+
         }
     }
 }

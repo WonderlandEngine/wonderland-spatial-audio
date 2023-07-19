@@ -14,7 +14,7 @@ import {vec3} from 'gl-matrix';
  * Constants
  */
 const tempVec: Float32Array = new Float32Array(3);
-const HRTF_BIN: string = './hrtf_64.bin';
+const HRTF_BIN: string = './hrtf_128.bin';
 const INIT_GAIN = 0.3;
 
 export const CONV_FREQ: number = 150;
@@ -35,7 +35,7 @@ export {_audioContext};
  */
 export class AudioMixer {
     private listener: Object3D | undefined;
-    private sources: [AudioBuffer, HRTFPanner, GainNode][];
+    private sources: [AudioBuffer, HRTFPanner, GainNode, number][];
     private audioNodes: (AudioBufferSourceNode | undefined)[];
     private isLoaded: Promise<boolean>;
     private lowPass: BiquadFilterNode;
@@ -79,7 +79,7 @@ export class AudioMixer {
      * @param {Float32Array} position current position world of the emmitter.
      * @returns {Promise<number>} The ID that identifies the source.
      */
-    async addSource(audioFile: string, position: Float32Array): Promise<number> {
+    async addSource(audioFile: string, position: Float32Array, vol: number): Promise<number> {
         const audioData: AudioBuffer = await this.getAudioData(audioFile);
         const gainNode: GainNode = _audioContext.createGain();
         gainNode.connect(this.lowPass);
@@ -87,7 +87,7 @@ export class AudioMixer {
         const panner = new HRTFPanner(gainNode);
 
         const sourceId = this.sources.length;
-        this.sources.push([audioData, panner, gainNode]);
+        this.sources.push([audioData, panner, gainNode, vol]);
 
         await this.isLoaded;
 
@@ -129,7 +129,7 @@ export class AudioMixer {
         const vol =
             refDistance /
             (refDistance + rolloffFactor * (Math.max(distance, refDistance) - refDistance));
-        this.sources[sourceId][2].gain.value = vol;
+        this.sources[sourceId][2].gain.value = vol * this.sources[sourceId][3];
         return true;
     }
 

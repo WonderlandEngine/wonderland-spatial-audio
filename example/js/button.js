@@ -51,14 +51,24 @@ export class ButtonComponent extends Component {
     target.onDown.add(this.onDown.bind(this));
     target.onUp.add(this.onUp.bind(this));
     this.returnPos = this.object.getPositionLocal();
-
-    this.targetPos = this.returnPos[1];
-    this.currentPos = 0;
+    this.click = this.object.addComponent(AudioSource, {
+      audioFile: "sfx/click.wav",
+      volume: 0.1
+    })
+    this.unclick = this.object.addComponent(AudioSource, {
+      audioFile: "sfx/unclick.wav",
+      volume: 0.1
+    })
+    this.welcome = WL.scene.addObject(this.object);
+    this.welcome.addComponent(AudioSource, {
+      audioFile: 'sfx/welcome.wav'
+    })
+    this.welcome.setPositionWorld([-5, 1, 2]);
+    this.first = true;
   }
 
   /* Called by 'cursor-target' */
   onHover(_, cursor) {
-    this.targetPos = this.returnPos[1] - 0.02;
     if (cursor.type === "finger-cursor") {
       this.onDown(_, cursor);
     }
@@ -68,21 +78,27 @@ export class ButtonComponent extends Component {
 
   /* Called by 'cursor-target' */
   async onDown(_, cursor) {
-    const am = getAudioMixer();
-    this.audio.startPlaying();
-    this.targetPos = this.returnPos[1] - 0.1;
+    this.click.play();
+    if(this.first) {
+      this.first = false;
+      const wel = this.welcome.getComponent(AudioSource);
+      wel.play();
+    } else {
+      this.audio.startPlaying();
+    }
+    this.object.setPositionLocal([this.returnPos[0], this.returnPos[1] - 0.08, this.returnPos[2]]);
     hapticFeedback(cursor.object, 1.0, 20);
   }
 
   /* Called by 'cursor-target' */
   onUp(_, cursor) {
-    this.targetPos = this.returnPos[1];
+    this.object.setPositionLocal(this.returnPos);
+    this.unclick.play();
     hapticFeedback(cursor.object, 0.7, 20);
   }
 
   /* Called by 'cursor-target' */
   onUnHover(_, cursor) {
-    this.targetPos = this.returnPos[1];
     if (cursor.type === "finger-cursor") {
       this.onUp(_, cursor);
     }
