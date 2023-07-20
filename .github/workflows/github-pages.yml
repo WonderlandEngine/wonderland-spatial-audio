@@ -1,0 +1,30 @@
+on: [push]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    container:
+      image: wonderlandengine/editor:latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Package
+      run: /usr/local/bin/entrypoint.sh WonderlandEditor --windowless --package --project ./example/SpatialAudioLab.wlp --credentials "$WLE_CREDENTIALS"
+      env:
+          WLE_CREDENTIALS: ${{ secrets.WLE_CREDENTIALS }}
+    - name: Gzip
+      run: gzip -k deploy/**/*.*
+    - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: ./public
+
+  deploy-pages:
+    needs: package
+    runs-on: ubuntu-latest
+    if: ${{ format('refs/heads/{0}', github.event.repository.default_branch) == github.ref }}
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v2
