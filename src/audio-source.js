@@ -16,13 +16,13 @@ export class AudioSource extends Component {
   onEnded = new Emitter();
 
   async start() {
+    this.volume = Math.min(this.volume, 1.0);
     this.audioID = await getAudioMixer().addSource(
         this.audioFile,
       this.object.getPositionWorld(tempVec),
         this.volume
     );
     this.update = this._update.bind(this);
-
   }
 
   play() {

@@ -35,7 +35,7 @@ export {_audioContext};
  */
 export class AudioMixer {
     private listener: Object3D | undefined;
-    private sources: [AudioBuffer, HRTFPanner, GainNode, number][];
+    private sources: [AudioBuffer, HRTFPanner, GainNode, number, DelayNode][];
     private audioNodes: (AudioBufferSourceNode | undefined)[];
     private isLoaded: Promise<boolean>;
     private lowPass: BiquadFilterNode;
@@ -82,12 +82,14 @@ export class AudioMixer {
     async addSource(audioFile: string, position: Float32Array, vol: number): Promise<number> {
         const audioData: AudioBuffer = await this.getAudioData(audioFile);
         const gainNode: GainNode = _audioContext.createGain();
+        let delayNode = _audioContext.createDelay();
+        delayNode.connect(gainNode);
         gainNode.connect(this.lowPass);
         gainNode.gain.value = INIT_GAIN;
         const panner = new HRTFPanner(gainNode);
 
         const sourceId = this.sources.length;
-        this.sources.push([audioData, panner, gainNode, vol]);
+        this.sources.push([audioData, panner, gainNode, vol, delayNode]);
 
         await this.isLoaded;
 
@@ -124,6 +126,8 @@ export class AudioMixer {
         /* Change the volume by the distance */
         this.listener.getPositionWorld(tempVec);
         const distance = Math.abs(vec3.distance(tempVec, position));
+        const delay = distance / 340;
+        this.sources[sourceId][4].delayTime.setValueAtTime(delay, _audioContext.currentTime);
         const rolloffFactor = 0.5;
         const refDistance = 1.0;
         const vol =
@@ -145,7 +149,7 @@ export class AudioMixer {
         }
         const audioNode: AudioBufferSourceNode = _audioContext.createBufferSource();
         this.audioNodes[sourceId] = audioNode;
-        audioNode.connect(this.sources[sourceId][2]);
+        audioNode.connect(this.sources[sourceId][4]);
         audioNode.buffer = this.sources[sourceId][0];
         audioNode.addEventListener('ended', () => (this.audioNodes[sourceId] = undefined));
         audioNode.start();
@@ -180,6 +184,10 @@ export class AudioMixer {
 
     get sourcesCount(): number {
         return this.sources.length;
+    }
+
+    private calcDelay(pos: Float32Array): number {
+        return 1;
     }
 }
 

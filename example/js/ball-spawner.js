@@ -55,9 +55,14 @@ export class BallSpawner extends Component {
 
     startPlaying() {
         for(let o of this.balls) {
+            /*
             tempVec[0] = Math.random() * 40 - 20;
             tempVec[1] = Math.random() * 6 + 1;
             tempVec[2] = Math.random() * 40 - 20;
+             */
+            tempVec[0] = Math.random() * 80 - 40;
+            tempVec[1] = Math.random() * 6 + 1;
+            tempVec[2] = Math.random() * 80 - 40;
             const audio = o.getComponent(AudioSource);
             if(audio.isPlaying()) {
                audio.stop();
