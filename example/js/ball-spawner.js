@@ -1,5 +1,6 @@
 import {Component, Property} from '@wonderlandengine/api';
 import { AudioSource } from "../../src/audio-source";
+import {HoveringAnim} from "./hovering-anim.js";
 
 const tempVec = new Float32Array(3);
 /**
@@ -20,11 +21,12 @@ export class BallSpawner extends Component {
          * You can for instance register extra component types here
          * that your component may create. */
         engine.registerComponent(AudioSource);
+        engine.registerComponent(HoveringAnim);
     }
 
     start() {
         /* Spawn 10 new objects with this.object as parent and
-            * let Wonderland Engine know, we will need 10 components (one per object) */
+         * let Wonderland Engine know, we will need 10 components (one per object) */
         this.balls = WL.scene.addObjects(this.ballCount, this.object, this.ballCount * 2);
         this.text = this.textComp.getComponent('text');
         this.text.text = this.ballCount;
@@ -37,32 +39,29 @@ export class BallSpawner extends Component {
             o.setScalingWorld([0.5, 0.5, 0.5]);
             const rand = Math.floor(Math.random() * 4) + 1;
             o.addComponent(AudioSource, {
-                audioFile: "sfx/" + rand + ".wav"
+                audioFile: "sfx/" + rand + ".wav",
+                volume: 1.0
             });
-            /* Currently this disables all lights for some reason
-            o.addComponent('light', {
-                lightType: WL.LightType.Point,
-                shadows: true
-            });
-            */
+
+            o.addComponent(HoveringAnim, {
+                speed: 0.5,
+                height: 2,
+                fixedZ: false
+            })
             o.active = false;
         }
     }
 
     update(dt) {
-        /* Called every frame. */
+        // @todo: Add animations
     }
 
     startPlaying() {
         for(let o of this.balls) {
-            /*
             tempVec[0] = Math.random() * 40 - 20;
             tempVec[1] = Math.random() * 6 + 1;
             tempVec[2] = Math.random() * 40 - 20;
-             */
-            tempVec[0] = Math.random() * 80 - 40;
-            tempVec[1] = Math.random() * 6 + 1;
-            tempVec[2] = Math.random() * 80 - 40;
+
             const audio = o.getComponent(AudioSource);
             if(audio.isPlaying()) {
                audio.stop();

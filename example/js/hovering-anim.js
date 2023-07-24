@@ -8,27 +8,30 @@ export class HoveringAnim extends Component {
   /* Properties that are configurable in the editor */
   static Properties = {
     speed: Property.float(1.0),
+    height: Property.float(1.0),
+    fixedZ: Property.bool(true)
   };
 
-  static onRegister(engine) {
-    /* Triggered when this component class is registered.
-     * You can for instance register extra component types here
-     * that your component may create. */
-  }
-
   start() {
-    this.posLocal = this.object.getPositionLocal();
+    this.posLocal = this.object.getPositionWorld();
     this.time = 0;
-    this.positionZ = 0.5;
+    this.positionZ = this.posLocal[1];
   }
 
   update(dt) {
     this.time += dt;
-    this.positionZ;
-    this.object.setPositionLocal([
-      this.posLocal[0],
-      (Math.pow(Math.sin(this.time), 2) / 100) * this.speed + this.positionZ,
-      this.posLocal[2],
-    ]);
+    this.posLocal = this.object.getPositionWorld();
+    if(this.fixedZ) {
+      this.object.setPositionWorld([
+        this.posLocal[0],
+        (Math.sin(this.time * this.speed) * this.height) * Math.sin(this.time ) + this.positionZ,
+        this.posLocal[2],
+      ]);
+    } else {
+      this.object.setPositionWorld([
+        Math.sin(this.time) + this.posLocal[0],
+        (Math.sin(this.time * this.speed) * this.height) * Math.sin(this.time ) + this.positionZ,
+        Math.cos(this.time) + this.posLocal[2]]);
+    }
   }
 }

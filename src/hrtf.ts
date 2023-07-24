@@ -9,10 +9,11 @@ import {_audioContext as audioContext, CONV_FREQ} from './audio-mixer.ts';
 /**
  * Constants
  */
-// @todo: increase crossfade to the max value that is still not noticeable
-const CROSSFADE_DUR = 10 / 1000;
-const THRESHOLD: number = 0.1;
+const CROSSFADE_DUR = 256 / 1000;
+const THRESHOLD = 0.1;
 const EIGHTY_PI = 180 / Math.PI;
+const REFDISTANCE = 1.0;
+const ROLLOFF = 0.5;
 
 /**
  * Variables
@@ -65,11 +66,13 @@ export async function loadHrir(hrir_path: string): Promise<boolean> {
     return false;
 }
 
-function interpolateHRIR(azimuth: number, elevation: number, out: [Float32Array, Float32Array]): void {
+function interpolateHRIR(
+    azimuth: number,
+    elevation: number,
+    out: [Float32Array, Float32Array]
+): void {
     const elevMin = Math.floor(elevation / 10) * 10;
     const elevMax = elevMin + 10;
-
-
 
     /* Largest elevation only has 1 measurement */
     if (elevMin === 90) {
@@ -224,6 +227,7 @@ function interpolateHRIR(azimuth: number, elevation: number, out: [Float32Array,
 }
 
 export class HRTFPanner {
+    private readonly volume: number;
     private readonly source: GainNode;
     private readonly hiPass: BiquadFilterNode;
     private readonly lastPos: number[];
@@ -231,8 +235,11 @@ export class HRTFPanner {
     private currentConvolver: HRTFConvolver;
     private endOfTransition: number;
     public hrir: [Float32Array, Float32Array];
+    private oldVol: number;
 
-    constructor(sourceNode: GainNode) {
+    constructor(sourceNode: GainNode, vol: number) {
+        this.volume = vol;
+        this.oldVol = 1.0;
         this.hrir = [new Float32Array(sampleSize), new Float32Array(sampleSize)];
         this.hiPass = audioContext.createBiquadFilter();
         this.hiPass.type = 'highpass';
@@ -244,11 +251,10 @@ export class HRTFPanner {
         this.source = sourceNode;
         this.source.channelCount = 1;
         this.source.connect(this.hiPass);
-        this.hiPass.connect(this.currentConvolver.convolver);
-        this.hiPass.connect(this.targetConvolver.convolver);
+        this.hiPass.connect(this.currentConvolver.delay);
+        this.hiPass.connect(this.targetConvolver.delay);
         this.currentConvolver.fadeGain.connect(audioContext.destination);
         this.targetConvolver.fadeGain.connect(audioContext.destination);
-
 
         /* lastPos cant be undefined, otherwise the first update() will fail */
         this.lastPos = [999, 999];
@@ -258,10 +264,11 @@ export class HRTFPanner {
     /**
      * Update the position of the panner.
      *
-     * @param azimuth Position of the new location.
-     * @param elevation Position of the new location.
+     * @param azimuth Position of the new location
+     * @param elevation Position of the new location
+     * @param distance Distance of listener to source
      */
-    public update(azimuth: number, elevation: number): void {
+    public update(azimuth: number, elevation: number, distance: number): void {
         /* Skip if the position didn't change enough or there is still a crossfade going on */
         if (
             this.endOfTransition < audioContext.currentTime &&
@@ -270,10 +277,19 @@ export class HRTFPanner {
         ) {
             interpolateHRIR(azimuth, elevation, this.hrir);
             this.targetConvolver.fillBuffer(this.hrir);
+            const vol =
+                (REFDISTANCE /
+                    (REFDISTANCE +
+                        ROLLOFF * (Math.max(distance, REFDISTANCE) - REFDISTANCE))) *
+                this.volume;
 
-            /* Adding 1ms ensures both fades start at the same time */
             const currTime = audioContext.currentTime;
             this.endOfTransition = currTime + CROSSFADE_DUR;
+            this.targetConvolver.delay.delayTime.setValueAtTime(distance / 340, currTime);
+
+            this.source.gain.setValueAtTime(this.oldVol, currTime);
+            this.source.gain.linearRampToValueAtTime(vol, this.endOfTransition);
+
             this.targetConvolver.fadeGain.gain.setValueAtTime(0, currTime);
             this.targetConvolver.fadeGain.gain.linearRampToValueAtTime(
                 1,
@@ -284,6 +300,7 @@ export class HRTFPanner {
                 0,
                 this.endOfTransition
             );
+            this.oldVol = vol;
 
             /* Swap convolvers */
             let t = this.targetConvolver;
@@ -302,17 +319,16 @@ class HRTFConvolver {
     public convolver: ConvolverNode;
     public fadeGain: GainNode;
     public buffer: AudioBuffer;
+    public delay: DelayNode;
 
     constructor() {
         this.convolver = audioContext.createConvolver();
+        this.delay = audioContext.createDelay();
         this.convolver.normalize = false;
         this.fadeGain = audioContext.createGain();
-        this.buffer = audioContext.createBuffer(
-            2,
-            sampleSize,
-            audioContext.sampleRate
-        );
+        this.buffer = audioContext.createBuffer(2, sampleSize, audioContext.sampleRate);
         this.convolver.buffer = this.buffer;
+        this.delay.connect(this.convolver);
         this.convolver.connect(this.fadeGain);
     }
 

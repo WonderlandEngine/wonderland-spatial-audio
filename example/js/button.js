@@ -61,7 +61,8 @@ export class ButtonComponent extends Component {
     })
     this.welcome = WL.scene.addObject(this.object);
     this.welcome.addComponent(AudioSource, {
-      audioFile: 'sfx/welcome.wav'
+      audioFile: 'sfx/welcome.wav',
+      volume: 0.5
     })
     this.welcome.setPositionWorld([-5, 1, 2]);
     this.first = true;

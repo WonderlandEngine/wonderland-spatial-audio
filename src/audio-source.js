@@ -9,7 +9,9 @@ const tempVec = new Float32Array(3);
 export class AudioSource extends Component {
   static TypeName = "audio-source";
   static Properties = {
+    /** Path to the audio file */
     audioFile: Property.string(null),
+    /** Max allowed volume (1.0 is 100%) */
     volume: Property.float(1.0)
   }
 
@@ -32,19 +34,14 @@ export class AudioSource extends Component {
   }
 
   stop() {
-    getAudioMixer()
-        .stopAudio(this.audioID);
+    getAudioMixer().stopAudio(this.audioID);
   }
 
   isPlaying() {
-    return getAudioMixer()
-        .isPlaying(this.audioID);
+    return getAudioMixer().isPlaying(this.audioID);
   }
 
   _update(dt) {
-    getAudioMixer().updatePosition(
-      this.audioID,
-      this.object.getPositionWorld(tempVec)
-    );
+    getAudioMixer().updatePosition(this.audioID, this.object.getPositionWorld(tempVec));
   }
 }

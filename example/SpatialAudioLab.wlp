@@ -1603,7 +1603,11 @@
                 },
                 {
                     "type": "hovering-anim",
-                    "active": true
+                    "active": true,
+                    "hovering-anim": {
+                        "speed": 1.8999999,
+                        "height": 0.0099999
+                    }
                 }
             ],
             "scaling": [
@@ -1671,7 +1675,7 @@
             "translation": [
                 -0.0008848,
                 1.325309,
-                -2.352840056119021e-8
+                -2.3528400561190217e-8
             ],
             "rotation": [
                 0.0,

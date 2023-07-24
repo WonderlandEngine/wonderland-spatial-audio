@@ -17,6 +17,17 @@ const tempVec: Float32Array = new Float32Array(3);
 const HRTF_BIN: string = './hrtf_128.bin';
 const INIT_GAIN = 0.3;
 
+// @todo: Automate this so it just reads all audiofiles in the deploy folder
+const allAudioFiles = [
+    'sfx/1.wav',
+    'sfx/2.wav',
+    'sfx/3.wav',
+    'sfx/4.wav',
+    'sfx/welcome.wav',
+    'sfx/click.wav',
+    'sfx/unclick.wav',
+];
+
 export const CONV_FREQ: number = 150;
 
 let _audioContext: AudioContext = null!;
@@ -35,10 +46,12 @@ export {_audioContext};
  */
 export class AudioMixer {
     private listener: Object3D | undefined;
-    private sources: [AudioBuffer, HRTFPanner, GainNode, number, DelayNode][];
-    private audioNodes: (AudioBufferSourceNode | undefined)[];
-    private isLoaded: Promise<boolean>;
-    private lowPass: BiquadFilterNode;
+    private readonly sources: [number, HRTFPanner, GainNode][];
+    private readonly audioNodes: (AudioBufferSourceNode | undefined)[];
+    private readonly isLoaded: Promise<boolean>;
+    private readonly lowPass: BiquadFilterNode;
+    private readonly audioFiles: [string, AudioBuffer][];
+    private readonly audioIsLoaded: Promise<boolean>;
 
     /**
      * Create a new AudioMixer instance.
@@ -58,12 +71,24 @@ export class AudioMixer {
 
         this.audioNodes = [];
         this.sources = [];
+        this.audioFiles = [];
+        this.audioIsLoaded = this.loadAllAudios();
+    }
+
+    private async loadAllAudios(): Promise<boolean> {
+        for (let i = 0; i < allAudioFiles.length; i++) {
+            const buf = await this.getAudioData(allAudioFiles[i]);
+            this.audioFiles.push([allAudioFiles[i], buf]);
+        }
+
+        return true;
     }
 
     /**
      * Sets the listener object in the AudioMixer.
      *
-     * @param object The listener that receives the audio.
+     * @param object The listener that receives the audio
+     *
      */
     setListener(object: Object3D): void {
         this.listener = object;
@@ -76,20 +101,30 @@ export class AudioMixer {
      * play or stop it.
      *
      * @param {string} audioFile Path to the audio sample
-     * @param {Float32Array} position current position world of the emmitter.
-     * @returns {Promise<number>} The ID that identifies the source.
+     * @param {Float32Array} position current position world of the emmitter
+     * @param volume Max volume the sound can reach
+     * @returns {Promise<number>} The ID that identifies the source
      */
-    async addSource(audioFile: string, position: Float32Array, vol: number): Promise<number> {
-        const audioData: AudioBuffer = await this.getAudioData(audioFile);
+    async addSource(
+        audioFile: string,
+        position: Float32Array,
+        volume: number
+    ): Promise<number> {
+        /* Avoid adding duplicate audiofiles */
+        await this.audioIsLoaded;
+        let bufferIndex = 0;
+        for (let i = 0; i < this.audioFiles.length; i++) {
+            if (this.audioFiles[i][0] === audioFile) {
+                bufferIndex = i;
+            }
+        }
         const gainNode: GainNode = _audioContext.createGain();
-        let delayNode = _audioContext.createDelay();
-        delayNode.connect(gainNode);
         gainNode.connect(this.lowPass);
         gainNode.gain.value = INIT_GAIN;
-        const panner = new HRTFPanner(gainNode);
+        const panner = new HRTFPanner(gainNode, volume);
 
         const sourceId = this.sources.length;
-        this.sources.push([audioData, panner, gainNode, vol, delayNode]);
+        this.sources.push([bufferIndex, panner, gainNode]);
 
         await this.isLoaded;
 
@@ -108,32 +143,23 @@ export class AudioMixer {
      * @returns true if update succeeded, false otherwise
      */
     updatePosition(sourceId: number, position: Float32Array): boolean {
-        if (sourceId >= this.sources.length || this.listener === undefined) {
+        if (
+            sourceId >= this.sources.length ||
+            this.listener === undefined ||
+            !this.isPlaying(sourceId)
+        ) {
             return false;
         }
 
         /* Figure out relative object position to the listener */
         this.listener.transformPointInverseWorld(tempVec, position);
-        const cords = cartesianToInteraural(
-            tempVec[0],
-            tempVec[2],
-            tempVec[1]
-        );
+        const cords = cartesianToInteraural(tempVec[0], tempVec[2], tempVec[1]);
 
         /* Update the panners position */
-        this.sources[sourceId][1].update(cords.azimuth, cords.elevation);
-
-        /* Change the volume by the distance */
         this.listener.getPositionWorld(tempVec);
         const distance = Math.abs(vec3.distance(tempVec, position));
-        const delay = distance / 340;
-        this.sources[sourceId][4].delayTime.setValueAtTime(delay, _audioContext.currentTime);
-        const rolloffFactor = 0.5;
-        const refDistance = 1.0;
-        const vol =
-            refDistance /
-            (refDistance + rolloffFactor * (Math.max(distance, refDistance) - refDistance));
-        this.sources[sourceId][2].gain.value = vol * this.sources[sourceId][3];
+        this.sources[sourceId][1].update(cords.azimuth, cords.elevation, distance);
+
         return true;
     }
 
@@ -149,8 +175,9 @@ export class AudioMixer {
         }
         const audioNode: AudioBufferSourceNode = _audioContext.createBufferSource();
         this.audioNodes[sourceId] = audioNode;
-        audioNode.connect(this.sources[sourceId][4]);
-        audioNode.buffer = this.sources[sourceId][0];
+        audioNode.connect(this.sources[sourceId][2]);
+        // @todo: this is terrible to understand
+        audioNode.buffer = this.audioFiles[this.sources[sourceId][0]][1];
         audioNode.addEventListener('ended', () => (this.audioNodes[sourceId] = undefined));
         audioNode.start();
 
@@ -168,6 +195,7 @@ export class AudioMixer {
     }
 
     /**
+     * Start playing a specific source.
      *
      * @param sourceId ID of the source of interest.
      * @returns {true} if the source is playing.
@@ -184,10 +212,6 @@ export class AudioMixer {
 
     get sourcesCount(): number {
         return this.sources.length;
-    }
-
-    private calcDelay(pos: Float32Array): number {
-        return 1;
     }
 }
 
