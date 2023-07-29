@@ -9,17 +9,20 @@ const tempVec = new Float32Array(3);
 export class AudioSource extends Component {
   static TypeName = "audio-source";
   static Properties = {
-    file: Property.string(),
-  };
+    /** Path to the audio file */
+    audioFile: Property.string(null),
+    /** Max allowed volume (1.0 is 100%) */
+    volume: Property.float(1.0)
+  }
 
   onEnded = new Emitter();
 
   async start() {
-    const rand = Math.floor(Math.random() * 4) + 1;
-    console.log(rand);
+    this.volume = Math.min(this.volume, 1.0);
     this.audioID = await getAudioMixer().addSource(
-      "sfx/" + rand + ".wav",
-      this.object.getPositionWorld(tempVec)
+        this.audioFile,
+      this.object.getPositionWorld(tempVec),
+        this.volume
     );
     this.update = this._update.bind(this);
   }
@@ -30,10 +33,15 @@ export class AudioSource extends Component {
       .addEventListener("ended", this.onEnded.notify.bind(this.onEnded));
   }
 
+  stop() {
+    getAudioMixer().stopAudio(this.audioID);
+  }
+
+  isPlaying() {
+    return getAudioMixer().isPlaying(this.audioID);
+  }
+
   _update(dt) {
-    getAudioMixer().updatePosition(
-      this.audioID,
-      this.object.getPositionWorld(tempVec)
-    );
+    getAudioMixer().updatePosition(this.audioID, this.object.getPositionWorld(tempVec));
   }
 }

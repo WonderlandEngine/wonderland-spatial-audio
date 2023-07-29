@@ -33,45 +33,43 @@ export class ButtonComponent extends Component {
   static TypeName = "button";
   static Properties = {
     buttonLight: Property.object(),
-    audioObject: Property.object(),
     hoverMaterial: Property.material(),
   };
   static Dependencies = [CursorTarget];
 
   /* Position to return to when "unpressing" the button */
   returnPos = new Float32Array(3);
-  Direction = {
-    UP: "up",
-    DOWN: "down",
-    STILL: "still",
-  };
-  time = 0;
-  playFirst = -1;
-  playSecond = -1;
-  playThird = -1;
-
   start() {
     const target =
       this.object.getComponent(CursorTarget) ||
       this.object.addComponent(CursorTarget);
 
-    this.audioEffect = this.audioObject.getComponent(AudioSource);
+    this.audio = this.object.getComponent('ball-spawner');
 
     target.onHover.add(this.onHover.bind(this));
     target.onUnhover.add(this.onUnHover.bind(this));
     target.onDown.add(this.onDown.bind(this));
     target.onUp.add(this.onUp.bind(this));
     this.returnPos = this.object.getPositionLocal();
-
-    this.targetPos = this.returnPos[1];
-    this.currentPos = 0;
-    this.direction = this.Direction.STILL;
+    this.click = this.object.addComponent(AudioSource, {
+      audioFile: "sfx/click.wav",
+      volume: 0.1
+    })
+    this.unclick = this.object.addComponent(AudioSource, {
+      audioFile: "sfx/unclick.wav",
+      volume: 0.1
+    })
+    this.welcome = WL.scene.addObject(this.object);
+    this.welcome.addComponent(AudioSource, {
+      audioFile: 'sfx/welcome.wav',
+      volume: 0.5
+    })
+    this.welcome.setPositionWorld([-5, 1, 2]);
+    this.first = true;
   }
 
   /* Called by 'cursor-target' */
   onHover(_, cursor) {
-    this.targetPos = this.returnPos[1] - 0.02;
-    this.direction = this.Direction.DOWN;
     if (cursor.type === "finger-cursor") {
       this.onDown(_, cursor);
     }
@@ -81,24 +79,27 @@ export class ButtonComponent extends Component {
 
   /* Called by 'cursor-target' */
   async onDown(_, cursor) {
-    const am = getAudioMixer();
-    this.playFirst = Math.floor(Math.random() * am.sourcesCount);
-    this.targetPos = this.returnPos[1] - 0.1;
-    this.direction = this.Direction.DOWN;
+    this.click.play();
+    if(this.first) {
+      this.first = false;
+      const wel = this.welcome.getComponent(AudioSource);
+      wel.play();
+    } else {
+      this.audio.startPlaying();
+    }
+    this.object.setPositionLocal([this.returnPos[0], this.returnPos[1] - 0.08, this.returnPos[2]]);
     hapticFeedback(cursor.object, 1.0, 20);
   }
 
   /* Called by 'cursor-target' */
   onUp(_, cursor) {
-    this.targetPos = this.returnPos[1];
-    this.direction = this.Direction.UP;
+    this.object.setPositionLocal(this.returnPos);
+    this.unclick.play();
     hapticFeedback(cursor.object, 0.7, 20);
   }
 
   /* Called by 'cursor-target' */
   onUnHover(_, cursor) {
-    this.targetPos = this.returnPos[1];
-    this.direction = this.Direction.UP;
     if (cursor.type === "finger-cursor") {
       this.onUp(_, cursor);
     }
@@ -107,35 +108,6 @@ export class ButtonComponent extends Component {
   }
 
   update(dt) {
-    this.time += dt;
-    if (this.direction === this.Direction.STILL) {
-    } else if (this.direction == this.Direction.DOWN) {
-      this.currentPos = this.object.getPositionLocal()[1];
-      this.object.translateLocal([0, -0.01, 0]);
-      if (this.currentPos < this.targetPos)
-        this.direction = this.Direction.STILL;
-    } else if (this.direction == this.Direction.UP) {
-      this.currentPos = this.object.getPositionLocal()[1];
-      this.object.translateLocal([0, 0.005, 0]);
-      if (this.currentPos > this.targetPos)
-        this.direction = this.Direction.STILL;
-    }
 
-    if (this.playFirst !== -1) {
-      this.time = 0;
-      const am = getAudioMixer();
-      am.playAudio(this.playFirst);
-      this.playSecond = Math.floor(Math.random() * am.sourcesCount);
-      this.playFirst = -1;
-    } else if (this.time > 1 && this.playSecond !== -1) {
-      const am = getAudioMixer();
-      am.playAudio(this.playSecond);
-      this.playThird = Math.floor(Math.random() * am.sourcesCount);
-      this.playSecond = -1;
-    } else if (this.time > 2 && this.playThird !== -1) {
-      const am = getAudioMixer();
-      am.playAudio(this.playThird);
-      this.playThird = -1;
-    }
   }
 }

@@ -3,243 +3,340 @@
  *
  * Translated to TypeScript and using [MIT HRTF measurements](https://sound.media.mit.edu/resources/KEMAR.html)
  */
-import { Point, Triangle, Delaunay } from "./delaunay.ts";
 
-export class HRTFContainer {
-  /* 64 samples should be enough quality for most applications.
-   * Note that increasing the sample size reduces performance. */
-  private readonly HRIR_PATH: string = "./hrtf_64.bin";
-  public hrirLoaded: Promise<unknown>;
-  private hrirData: Float32Array;
-  private triangles: Triangle[];
+import {_audioContext as audioContext, CONV_FREQ} from './audio-mixer.ts';
 
-  public readonly sampleSize: number;
+/**
+ * Constants
+ */
+const CROSSFADE_DUR = 256 / 1000;
+const THRESHOLD = 0.1;
+const EIGHTY_PI = 180 / Math.PI;
+const REFDISTANCE = 1.0;
+const ROLLOFF = 0.5;
 
-  constructor() {
-    this.sampleSize = this.getSampleSizeFromPathName();
-    this.hrirLoaded = this.loadHrir();
-    this.hrirData = new Float32Array(0);
-    this.triangles = [];
-  }
+/**
+ * Variables
+ */
+let hrir: Float32Array;
+let sortedPoints: number[];
+let sampleSize = -1;
 
-  /**
-   * Loads the HRIR data from a binary.
-   *
-   * The Binary structure is as follows:
-   *
-   *         Elevation | Azimuth | Data <-- Left ear
-   *         Elevation | Azimuth | Data <-- Right ear
-   *         Elevation | Azimuth | Data <-- Left ear
-   *         ...
-   */
-  private async loadHrir(): Promise<any> {
-    const response = await fetch(this.HRIR_PATH);
+function getSampleSizeFromPathName(path: string): number {
+    const match = path.match(/\d+/);
+    if (match) {
+        return parseInt(match[0], 10);
+    }
+    throw new Error('Sample size could not be identified!');
+}
+
+export async function loadHrir(hrir_path: string): Promise<boolean> {
+    sampleSize = getSampleSizeFromPathName(hrir_path);
+    const response = await fetch(hrir_path);
     const buffer = await response.arrayBuffer();
 
     let count: number = 0;
-    let points: Point[] = [];
+    let points: [number, number, number][] = [];
     if (buffer) {
-      let offset = 0;
-      this.hrirData = new Float32Array(buffer);
-      while (offset < this.hrirData.length) {
-        const elevation = this.hrirData[offset];
-        offset++;
+        let offset = 0;
+        hrir = new Float32Array(buffer);
+        while (offset < hrir.length) {
+            const elevation = hrir[offset];
+            offset++;
 
-        const azimuth = this.hrirData[offset];
-        offset++;
+            const azimuth = hrir[offset];
+            offset++;
 
-        const point = new Point(azimuth, elevation);
+            points.push([elevation, azimuth, count]);
 
-        /* The Point object has a storage to conveniently keep track
-         * of the data location in 'this.hrirData' */
-        point.setBufferIndex(count);
-
-        offset += this.sampleSize * 2 + 2;
-
-        points.push(point);
-        count += 2;
-      }
-      this.triangles = new Delaunay(points).getTriangles();
-    }
-  }
-
-  public interpolateHRIR(
-    azm: number,
-    elv: number
-  ): [Float32Array, Float32Array] | undefined {
-    let C: Point;
-    let X: number[];
-    let g1, g2, g3: number;
-
-    for (const tri of this.triangles) {
-      C = tri.p3;
-      X = [azm - C.x, elv - C.y];
-      g1 = tri.invT[0] * X[0] + tri.invT[2] * X[1];
-      g2 = tri.invT[1] * X[0] + tri.invT[3] * X[1];
-      g3 = 1 - g1 - g2;
-      if (g1 >= 0 && g2 >= 0 && g3 >= 0) {
-        const A = tri.p1;
-        const B = tri.p2;
-        const blockSize = this.sampleSize + 2;
-        const hrirL = new Float32Array(this.sampleSize);
-        const hrirR = new Float32Array(this.sampleSize);
-        const iAL: number = A.bufferIndex * blockSize + 2;
-        const iAR: number = (A.bufferIndex + 1) * blockSize + 2;
-        const iBL: number = B.bufferIndex * blockSize + 2;
-        const iBR: number = (B.bufferIndex + 1) * blockSize + 2;
-        const iCL: number = C.bufferIndex * blockSize + 2;
-        const iCR: number = (C.bufferIndex + 1) * blockSize + 2;
-        for (let i = 0; i < this.sampleSize; ++i) {
-          hrirL[i] =
-            g1 * this.hrirData[iAL + i] +
-            g2 * this.hrirData[iBL + i] +
-            g3 * this.hrirData[iCL + i];
-          hrirR[i] =
-            g1 * this.hrirData[iAR + i] +
-            g2 * this.hrirData[iBR + i] +
-            g3 * this.hrirData[iCR + i];
+            offset += sampleSize * 2 + 2;
+            count += 2;
         }
-        return [hrirL, hrirR];
-      }
-    }
-    return undefined;
-  }
+        points.sort((a, b) => {
+            if (a[0] !== b[0]) {
+                return a[0] - b[0];
+            }
 
-  private getSampleSizeFromPathName(): number {
-    const match = this.HRIR_PATH.match(/\d+/);
-    if (match) {
-      return parseInt(match[0], 10);
+            /* Sort from large to small on azimuth */
+            return b[1] - a[1];
+        });
+        sortedPoints = points.flat();
+        return true;
     }
-    throw new Error("Sample size could not be identified!");
-  }
+    return false;
+}
+
+function interpolateHRIR(
+    azimuth: number,
+    elevation: number,
+    out: [Float32Array, Float32Array]
+): void {
+    const elevMin = Math.floor(elevation / 10) * 10;
+    const elevMax = elevMin + 10;
+
+    /* Largest elevation only has 1 measurement */
+    if (elevMin === 90) {
+        const bufferIndexOf90 = sortedPoints[sortedPoints.length - 1];
+        const blockSize = sampleSize + 2;
+        const iL: number = bufferIndexOf90 * blockSize + 2;
+        const iR: number = (bufferIndexOf90 + 1) * blockSize + 2;
+        for (let i = 0; i < sampleSize; ++i) {
+            out[0][i] = hrir[iL + i];
+            out[1][i] = hrir[iR + i];
+        }
+        return;
+    }
+    /* In this case elevMax only has one measurement, so no square of points can be found around our point */
+    if (elevMin === 80) {
+        const aziMin = Math.floor(azimuth / 30) * 30;
+        const aziMax = aziMin === 330 ? 0 : aziMin + 30;
+
+        /* Find index of azimuth of two points around requested point */
+        const minPointIndex = (aziMin / 30) * 3 + 4;
+        const maxPointIndex = (aziMax / 30) * 3 + 4;
+
+        const bufferIndexMin = sortedPoints[sortedPoints.length - minPointIndex];
+        const bufferIndexMax = sortedPoints[sortedPoints.length - maxPointIndex];
+
+        /* Calculate the weighting of each one of the four points */
+        const elevWeight1 = (elevation - elevMin) / 10;
+        const aziWeight0 = (azimuth - aziMin) / 30;
+        const elevWeight2 = 1 - elevWeight1;
+        const aziWeight1 = 1 - aziWeight0;
+
+        const bufferIndexOf90 = sortedPoints[sortedPoints.length - 1];
+        const blockSize = sampleSize + 2;
+        const iL: number = bufferIndexOf90 * blockSize + 2;
+        const iR: number = (bufferIndexOf90 + 1) * blockSize + 2;
+        const iMinL: number = bufferIndexMin * blockSize + 2;
+        const iMinR: number = (bufferIndexMin + 1) * blockSize + 2;
+        const iMaxL: number = bufferIndexMax * blockSize + 2;
+        const iMaxR: number = (bufferIndexMax + 1) * blockSize + 2;
+        for (let i = 0; i < sampleSize; ++i) {
+            out[0][i] =
+                elevWeight2 * hrir[iL + i] +
+                elevWeight1 * (aziWeight0 * hrir[iMinL] + aziWeight1 * hrir[iMaxL]);
+            out[1][i] =
+                elevWeight2 * hrir[iR + i] +
+                elevWeight1 * (aziWeight0 * hrir[iMinR] + aziWeight1 * hrir[iMaxR]);
+        }
+        return;
+    }
+
+    const bufferIndex = [-1, -1, -1, -1];
+    const foundAzi = [-1, -1, -1, -1];
+    const arrayLength = sortedPoints.length;
+
+    /* Run through all available points until finding the 4 closest points
+     * around the request point. */
+    let i = 0;
+    for (i; i < arrayLength; i += 3) {
+        /* Find two hrir measurements surrounding and below the requested one */
+        if (sortedPoints[i] === elevMin) {
+            /* Special case where the azimuth is in the range between 355 and 0 */
+            if (azimuth >= sortedPoints[i + 1]) {
+                bufferIndex[0] = sortedPoints[i + 2];
+                foundAzi[0] = sortedPoints[i + 1];
+                /* Find the 0 degree point */
+                for (let j = i + 4; j < arrayLength; j += 3) {
+                    if (sortedPoints[j] === 0) {
+                        bufferIndex[1] = sortedPoints[j + 1];
+                        foundAzi[1] = sortedPoints[j];
+                        break;
+                    }
+                }
+                break;
+            } else {
+                for (let j = i + 4; j < arrayLength; j += 3) {
+                    /* Find pos of correct azimuth */
+                    if (sortedPoints[j] < azimuth) {
+                        bufferIndex[0] = sortedPoints[j + 1];
+                        foundAzi[0] = sortedPoints[j];
+                        /* Push previous bigger one */
+                        bufferIndex[1] = sortedPoints[j - 2];
+                        foundAzi[1] = sortedPoints[j - 3];
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    }
+    for (i; i < arrayLength; i += 3) {
+        /* Find two hrir measurements surrounding and above the requested one */
+        if (sortedPoints[i] === elevMax) {
+            /* Special case where the azimuth is in the range between 355 and 0 */
+            if (azimuth >= sortedPoints[i + 1]) {
+                bufferIndex[2] = sortedPoints[i + 2];
+                foundAzi[2] = sortedPoints[i + 1];
+                /* Find the 0 degree point */
+                for (let j = i + 4; j < arrayLength; j += 3) {
+                    if (sortedPoints[j] === 0) {
+                        bufferIndex[3] = sortedPoints[j + 1];
+                        foundAzi[3] = sortedPoints[j];
+                        break;
+                    }
+                }
+                break;
+            } else {
+                for (let j = i + 4; j < arrayLength; j += 3) {
+                    /* Find pos of correct azimuth */
+                    if (sortedPoints[j] < azimuth) {
+                        bufferIndex[2] = sortedPoints[j + 1];
+                        foundAzi[2] = sortedPoints[j];
+                        /* Push previous bigger one */
+                        bufferIndex[3] = sortedPoints[j - 2];
+                        foundAzi[3] = sortedPoints[j - 3];
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    /* Calculate the weighting of each one of the four points */
+    const aziSpace = Math.abs(foundAzi[1] - foundAzi[0]);
+    const aziSpace2 = Math.abs(foundAzi[3] - foundAzi[2]);
+    const elevWeight1 = (elevation - elevMin) / 10;
+    const aziWeight0 = (azimuth - foundAzi[0]) / aziSpace;
+    const aziWeight2 = (azimuth - foundAzi[2]) / aziSpace2;
+    const elevWeight2 = 1 - elevWeight1;
+    const aziWeight1 = 1 - aziWeight0;
+    const aziWeight3 = 1 - aziWeight2;
+
+    const blockSize = sampleSize + 2;
+    const iAL = bufferIndex[0] * blockSize + 2;
+    const iAR = (bufferIndex[0] + 1) * blockSize + 2;
+    const iBL = bufferIndex[1] * blockSize + 2;
+    const iBR = (bufferIndex[1] + 1) * blockSize + 2;
+    const iCL = bufferIndex[2] * blockSize + 2;
+    const iCR = (bufferIndex[2] + 1) * blockSize + 2;
+    const iDL = bufferIndex[3] * blockSize + 2;
+    const iDR = (bufferIndex[3] + 1) * blockSize + 2;
+
+    for (let i = 0; i < sampleSize; ++i) {
+        out[0][i] =
+            elevWeight1 * (aziWeight0 * hrir[iAL + i] + aziWeight1 * hrir[iBL + i]) +
+            elevWeight2 * (aziWeight2 * hrir[iCL + i] + aziWeight3 * hrir[iDL + i]);
+        out[1][i] =
+            elevWeight1 * (aziWeight0 * hrir[iAR + i] + aziWeight1 * hrir[iBR + i]) +
+            elevWeight2 * (aziWeight2 * hrir[iCR + i] + aziWeight3 * hrir[iDR + i]);
+    }
+    return;
 }
 
 export class HRTFPanner {
-  private readonly crossfadeDuration: number = 25 / 1000;
-  private readonly source: GainNode;
-  private readonly hiPass: BiquadFilterNode;
-  private readonly loPass: BiquadFilterNode;
-  private readonly hrtfContainer: HRTFContainer;
-  private readonly audioContext: AudioContext;
-  private targetConvolver: HRTFConvolver;
-  private currentConvolver: HRTFConvolver;
-  private gain: GainNode;
-  private currentPos: number[];
-  private transisitonTime: number;
+    private readonly volume: number;
+    private readonly source: GainNode;
+    private readonly hiPass: BiquadFilterNode;
+    private readonly lastPos: number[];
+    private targetConvolver: HRTFConvolver;
+    private currentConvolver: HRTFConvolver;
+    private endOfTransition: number;
+    public hrir: [Float32Array, Float32Array];
+    private oldVol: number;
 
-  constructor(
-    audioContext: AudioContext,
-    sourceNode: GainNode,
-    hrtfContainer: HRTFContainer
-  ) {
-    this.audioContext = audioContext;
-    this.hrtfContainer = hrtfContainer;
-    this.loPass = this.audioContext.createBiquadFilter();
-    this.hiPass = this.audioContext.createBiquadFilter();
-    this.loPass.type = "lowpass";
-    this.loPass.frequency.value = 150;
-    this.hiPass.type = "highpass";
-    this.hiPass.frequency.value = 150;
+    constructor(sourceNode: GainNode, vol: number) {
+        this.volume = vol;
+        this.oldVol = 1.0;
+        this.hrir = [new Float32Array(sampleSize), new Float32Array(sampleSize)];
+        this.hiPass = audioContext.createBiquadFilter();
+        this.hiPass.type = 'highpass';
+        this.hiPass.frequency.value = CONV_FREQ;
 
-    this.targetConvolver = new HRTFConvolver(
-      this.audioContext,
-      hrtfContainer.sampleSize
-    );
+        this.targetConvolver = new HRTFConvolver();
+        this.currentConvolver = new HRTFConvolver();
 
-    this.currentConvolver = new HRTFConvolver(
-      this.audioContext,
-      hrtfContainer.sampleSize
-    );
+        this.source = sourceNode;
+        this.source.channelCount = 1;
+        this.source.connect(this.hiPass);
+        this.hiPass.connect(this.currentConvolver.delay);
+        this.hiPass.connect(this.targetConvolver.delay);
+        this.currentConvolver.fadeGain.connect(audioContext.destination);
+        this.targetConvolver.fadeGain.connect(audioContext.destination);
 
-    this.gain = audioContext.createGain();
-    this.source = sourceNode;
-    this.source.channelCount = 1;
-    this.source.connect(this.loPass);
-    this.source.connect(this.hiPass);
-    this.hiPass.connect(this.currentConvolver.convolver);
-    this.hiPass.connect(this.targetConvolver.convolver);
-    this.loPass.connect(this.audioContext.destination);
-    this.currentConvolver.gainNode.connect(this.gain);
-    this.targetConvolver.gainNode.connect(this.gain);
-    this.gain.connect(this.audioContext.destination);
+        /* lastPos cant be undefined, otherwise the first update() will fail */
+        this.lastPos = [999, 999];
+        this.endOfTransition = audioContext.currentTime;
+    }
 
-    this.currentPos = [];
-    this.transisitonTime = this.audioContext.currentTime;
-  }
+    /**
+     * Update the position of the panner.
+     *
+     * @param azimuth Position of the new location
+     * @param elevation Position of the new location
+     * @param distance Distance of listener to source
+     */
+    public update(azimuth: number, elevation: number, distance: number): void {
+        /* Skip if the position didn't change enough or there is still a crossfade going on */
+        if (
+            this.endOfTransition < audioContext.currentTime &&
+            (Math.abs(this.lastPos[0] - azimuth) > THRESHOLD ||
+                Math.abs(this.lastPos[1] - elevation) > THRESHOLD)
+        ) {
+            interpolateHRIR(azimuth, elevation, this.hrir);
+            this.targetConvolver.fillBuffer(this.hrir);
+            const vol =
+                (REFDISTANCE /
+                    (REFDISTANCE +
+                        ROLLOFF * (Math.max(distance, REFDISTANCE) - REFDISTANCE))) *
+                this.volume;
 
-  /**
-   * Update the position of the panner.
-   *
-   * @param azimuth Position of the new location.
-   * @param elevation Position of the new location.
-   */
-  public update(azimuth: number, elevation: number): void {
-    /* Skip if the position didn't change or there is still a crossfade going on */
-    if (
-      (Math.abs(this.currentPos[0] - azimuth) < 0.1 &&
-        Math.abs(this.currentPos[1] - elevation) < 0.1) ||
-      this.transisitonTime > this.audioContext.currentTime
-    )
-      return;
+            const currTime = audioContext.currentTime;
+            this.endOfTransition = currTime + CROSSFADE_DUR;
+            this.targetConvolver.delay.delayTime.setValueAtTime(distance / 340, currTime);
 
-    this.targetConvolver.fillBuffer(
-      this.hrtfContainer.interpolateHRIR(azimuth, elevation)
-    );
+            this.source.gain.setValueAtTime(this.oldVol, currTime);
+            this.source.gain.linearRampToValueAtTime(vol, this.endOfTransition);
 
-    /* Adding 1ms ensures both fades start at the same time */
-    this.transisitonTime = this.audioContext.currentTime + 1 / 1000;
-    this.targetConvolver.gainNode.gain.setValueAtTime(0, this.transisitonTime);
-    this.targetConvolver.gainNode.gain.linearRampToValueAtTime(
-      1,
-      this.transisitonTime + this.crossfadeDuration
-    );
-    this.currentConvolver.gainNode.gain.setValueAtTime(1, this.transisitonTime);
-    this.currentConvolver.gainNode.gain.linearRampToValueAtTime(
-      0,
-      this.transisitonTime + this.crossfadeDuration
-    );
-    this.transisitonTime += this.crossfadeDuration;
+            this.targetConvolver.fadeGain.gain.setValueAtTime(0, currTime);
+            this.targetConvolver.fadeGain.gain.linearRampToValueAtTime(
+                1,
+                this.endOfTransition
+            );
+            this.currentConvolver.fadeGain.gain.setValueAtTime(1, currTime);
+            this.currentConvolver.fadeGain.gain.linearRampToValueAtTime(
+                0,
+                this.endOfTransition
+            );
+            this.oldVol = vol;
 
-    /* Swap convolvers */
-    let t = this.targetConvolver;
-    this.targetConvolver = this.currentConvolver;
-    this.currentConvolver = t;
+            /* Swap convolvers */
+            let t = this.targetConvolver;
+            this.targetConvolver = this.currentConvolver;
+            this.currentConvolver = t;
 
-    /* Save the current position */
-    this.currentPos[0] = azimuth;
-    this.currentPos[1] = elevation;
-  }
+            /* Save the current position */
+            this.lastPos[0] = azimuth;
+            this.lastPos[1] = elevation;
+        }
+        return;
+    }
 }
 
 class HRTFConvolver {
-  public convolver: ConvolverNode;
-  public buffer: AudioBuffer;
-  public gainNode: GainNode;
+    public convolver: ConvolverNode;
+    public fadeGain: GainNode;
+    public buffer: AudioBuffer;
+    public delay: DelayNode;
 
-  constructor(audioContext: AudioContext, bufferSize: number) {
-    this.buffer = audioContext.createBuffer(
-      2,
-      bufferSize,
-      audioContext.sampleRate
-    );
-    this.convolver = audioContext.createConvolver();
-    this.convolver.normalize = false;
-    this.convolver.buffer = this.buffer;
-    this.gainNode = audioContext.createGain();
-
-    this.convolver.connect(this.gainNode);
-  }
-
-  public fillBuffer(iR: [Float32Array, Float32Array] | undefined) {
-    if (iR === undefined) return;
-    let bufferL = this.buffer.getChannelData(0);
-    let bufferR = this.buffer.getChannelData(1);
-    for (let i = 0; i < this.buffer.length; ++i) {
-      bufferL[i] = iR[0][i];
-      bufferR[i] = iR[1][i];
+    constructor() {
+        this.convolver = audioContext.createConvolver();
+        this.delay = audioContext.createDelay();
+        this.convolver.normalize = false;
+        this.fadeGain = audioContext.createGain();
+        this.buffer = audioContext.createBuffer(2, sampleSize, audioContext.sampleRate);
+        this.convolver.buffer = this.buffer;
+        this.delay.connect(this.convolver);
+        this.convolver.connect(this.fadeGain);
     }
-    this.convolver.buffer = this.buffer;
-  }
+
+    public fillBuffer(buf: [Float32Array, Float32Array]): void {
+        this.buffer.copyToChannel(buf[0], 0);
+        this.buffer.copyToChannel(buf[1], 1);
+        this.convolver.buffer = this.buffer;
+    }
 }
 
 /**
@@ -248,45 +345,45 @@ class HRTFConvolver {
  * @note This is NOT a standard conversion! It is modified,
  *  to respect the hrtf measurements, used in this project.
  *
- * @param x1 - axis that passes through the ears from left to right
- * @param x2 - axis that passes "between the eyes" and points ahead
- * @param x3 - axis that points "up"
+ * @param x - axis that passes through the ears from left to right
+ * @param y - axis that passes "between the eyes" and points ahead
+ * @param z - axis that points "up"
  *
  * @returns azimuth and elevation in degrees.
  */
 export function cartesianToInteraural(
-  x: number,
-  y: number,
-  z: number
-): { azimuth: number; elevation: number } {
-  let azimuth = Math.atan2(y, x);
-  const horizontalDistance = Math.sqrt(x ** 2 + y ** 2);
-  const elevation = Math.atan2(z, horizontalDistance);
+    x: number,
+    y: number,
+    z: number
+): {azimuth: number; elevation: number} {
+    const horizontalDistance = Math.sqrt(x * x + y * y);
+    const azimuth = Math.atan2(y, x);
+    const elevation = Math.atan2(z, horizontalDistance);
 
-  /* Convert to degrees and modify to fit HRIR */
-  let azimuthDegrees = azimuth * (180 / Math.PI) + 90;
-  if (azimuthDegrees < 0) {
-    azimuthDegrees = 360 + azimuthDegrees;
-  }
-  // @todo: Check if elevation needs modification.
-  let elevationDegrees = elevation * (180 / Math.PI);
-  if (elevationDegrees < -40) elevationDegrees = -40;
-  return { azimuth: azimuthDegrees, elevation: elevationDegrees };
+    /* Convert to degrees and modify to fit HRIR */
+    let azimuthDegrees = azimuth * EIGHTY_PI + 90;
+    if (azimuthDegrees < 0) {
+        azimuthDegrees = 360 + azimuthDegrees;
+    }
+    // @todo: Check if elevation needs modification.
+    let elevationDegrees = elevation * EIGHTY_PI;
+    if (elevationDegrees < -40) elevationDegrees = -40;
+    return {azimuth: azimuthDegrees, elevation: elevationDegrees};
 }
 
 function interauralToCartesian(r: number, azm: number, elv: number) {
-  azm = deg2rad(azm);
-  elv = deg2rad(elv);
-  let x1 = r * Math.sin(azm);
-  let x2 = r * Math.cos(azm) * Math.cos(elv);
-  let x3 = r * Math.cos(azm) * Math.sin(elv);
-  return { x1: x1, x2: x2, x3: x3 };
+    azm = deg2rad(azm);
+    elv = deg2rad(elv);
+    let x1 = r * Math.sin(azm);
+    let x2 = r * Math.cos(azm) * Math.cos(elv);
+    let x3 = r * Math.cos(azm) * Math.sin(elv);
+    return {x1: x1, x2: x2, x3: x3};
 }
 
 function deg2rad(deg: number) {
-  return (deg * Math.PI) / 180;
+    return (deg * Math.PI) / 180;
 }
 
 function rad2deg(rad: number) {
-  return (rad * 180) / Math.PI;
+    return (rad * 180) / Math.PI;
 }
