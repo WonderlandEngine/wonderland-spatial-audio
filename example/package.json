@@ -5,18 +5,17 @@
   "main": "js/index.js",
   "type": "module",
   "module": "js/index.js",
-  "scripts": {
-    "build": "echo \"The 'build' script is run by the editor and should produce your application bundle\""
-  },
+  "scripts": {},
   "keywords": [
     "wonderland-engine"
   ],
   "dependencies": {
     "@wonderlandengine/api": "^1.0.0",
     "@wonderlandengine/components": "^1.0.3",
+    "wonderland-spatial-audio": "file:..",
     "gl-matrix": "^3.4.3"
   },
   "devDependencies": {
-    "wonderland-spatial-audio": "file:.."
+    "esbuild": "^0.15.14"
   }
 }

@@ -22,7 +22,8 @@
     "url": "https://github.com/WonderlandEngine/wonderland-spatial-audio/issues"
   },
   "dependencies": {
-    "gl-matrix": "^3.4.3"
+    "gl-matrix": "^3.4.3",
+    "@wonderlandengine/api": "^1.0.0"
   },
   "peerDependencies": {
     "@wonderlandengine/api": "^1.0.0"
