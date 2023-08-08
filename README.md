@@ -1,3 +1,5 @@
+![build](https://github.com/WonderlandEngine/wonderland-engine-examples/actions/workflows/github-pages.yml/badge.svg)
+
 # Wonderland Spatial Audio
 
 Welcome to Wonderland Spatial Audio, a set of spatial audio components

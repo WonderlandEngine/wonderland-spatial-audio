@@ -1,6 +1,8 @@
+name: Build
 on: [push]
 
 permissions:
+  pages: write
   contents: write
 
 jobs:
@@ -12,7 +14,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Package
       run: |
-        npm i
+        npm ci
         cd example
         /usr/local/bin/entrypoint.sh WonderlandEditor --windowless --package --project ./SpatialAudioLab.wlp --credentials "$WLE_CREDENTIALS"
         cd ..
