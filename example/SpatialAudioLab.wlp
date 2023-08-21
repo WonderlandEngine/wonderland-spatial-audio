@@ -1580,7 +1580,7 @@
                 },
                 {
                     "type": "listener",
-                    "active": false
+                    "active": true
                 },
                 {
                     "type": "input",
@@ -2591,7 +2591,8 @@
             "bundlingType": "esbuild",
             "libraryPaths": [
                 "/js/lib/"
-            ]
+            ],
+            "esbuildFlags": "--format=esm --platform=node"
         },
         "runtime": {
             "visualizeColliders": false,
@@ -2791,6 +2792,12 @@
             },
             "features": {
                 "DEPRECATED_LIGHT_ATTENUATION": true
+            }
+        },
+        "317": {
+            "link": {
+                "name": "TileFeedback",
+                "file": "default"
             }
         }
     },

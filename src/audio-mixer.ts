@@ -7,7 +7,7 @@
  *
  */
 import {Object3D} from '@wonderlandengine/api';
-import {HRTFPanner, cartesianToInteraural, loadHrir} from './hrtf.ts';
+import {cartesianToInteraural, HRTFPanner, loadHrir} from './hrtf.ts';
 import {vec3} from 'gl-matrix';
 
 /**
@@ -16,17 +16,7 @@ import {vec3} from 'gl-matrix';
 const tempVec: Float32Array = new Float32Array(3);
 const HRTF_BIN: string = './hrtf_128.bin';
 const INIT_GAIN = 0.3;
-
-// @todo: Automate this so it just reads all audiofiles in the deploy folder
-const allAudioFiles = [
-    'sfx/1.wav',
-    'sfx/2.wav',
-    'sfx/3.wav',
-    'sfx/4.wav',
-    'sfx/welcome.wav',
-    'sfx/click.wav',
-    'sfx/unclick.wav',
-];
+const audioFiles: { [key: string]: Promise<AudioBuffer> } = {};
 
 export const CONV_FREQ: number = 150;
 
@@ -46,12 +36,10 @@ export {_audioContext};
  */
 export class AudioMixer {
     private listener: Object3D | undefined;
-    private readonly sources: [number, HRTFPanner, GainNode][];
+    private readonly sources: [string, HRTFPanner, GainNode][];
     private readonly audioNodes: (AudioBufferSourceNode | undefined)[];
     private readonly isLoaded: Promise<boolean>;
     private readonly lowPass: BiquadFilterNode;
-    private readonly audioFiles: [string, AudioBuffer][];
-    private readonly audioIsLoaded: Promise<boolean>;
 
     /**
      * Create a new AudioMixer instance.
@@ -71,17 +59,6 @@ export class AudioMixer {
 
         this.audioNodes = [];
         this.sources = [];
-        this.audioFiles = [];
-        this.audioIsLoaded = this.loadAllAudios();
-    }
-
-    private async loadAllAudios(): Promise<boolean> {
-        for (let i = 0; i < allAudioFiles.length; i++) {
-            const buf = await this.getAudioData(allAudioFiles[i]);
-            this.audioFiles.push([allAudioFiles[i], buf]);
-        }
-
-        return true;
     }
 
     /**
@@ -110,21 +87,15 @@ export class AudioMixer {
         position: Float32Array,
         volume: number
     ): Promise<number> {
-        /* Avoid adding duplicate audiofiles */
-        await this.audioIsLoaded;
-        let bufferIndex = 0;
-        for (let i = 0; i < this.audioFiles.length; i++) {
-            if (this.audioFiles[i][0] === audioFile) {
-                bufferIndex = i;
-            }
-        }
+
+        this.getAudioData(audioFile);
         const gainNode: GainNode = _audioContext.createGain();
         gainNode.connect(this.lowPass);
         gainNode.gain.value = INIT_GAIN;
         const panner = new HRTFPanner(gainNode, volume);
 
         const sourceId = this.sources.length;
-        this.sources.push([bufferIndex, panner, gainNode]);
+        this.sources.push([audioFile, panner, gainNode]);
 
         await this.isLoaded;
 
@@ -169,7 +140,7 @@ export class AudioMixer {
      * @param sourceId ID of the source that is supposed to be played
      * @returns {AudioBufferSourceNode} on success. Undefined otherwise.
      */
-    playAudio(sourceId: number): AudioBufferSourceNode | undefined {
+    async playAudio(sourceId: number): Promise<AudioBufferSourceNode | undefined> {
         if (sourceId >= this.sources.length) {
             return;
         }
@@ -177,7 +148,7 @@ export class AudioMixer {
         this.audioNodes[sourceId] = audioNode;
         audioNode.connect(this.sources[sourceId][2]);
         // @todo: this is terrible to understand
-        audioNode.buffer = this.audioFiles[this.sources[sourceId][0]][1];
+        audioNode.buffer = await audioFiles[this.sources[sourceId][0]];
         audioNode.addEventListener('ended', () => (this.audioNodes[sourceId] = undefined));
         audioNode.start();
 
@@ -204,10 +175,11 @@ export class AudioMixer {
         return this.audioNodes[sourceId] !== undefined;
     }
 
-    private async getAudioData(file: string): Promise<AudioBuffer> {
+    private async getAudioData(file: string): Promise<void> {
+        if (audioFiles[file]) return;
         const response = await fetch(file);
         const buffer = await response.arrayBuffer();
-        return _audioContext.decodeAudioData(buffer);
+        audioFiles[file] =   _audioContext.decodeAudioData(buffer);
     }
 
     get sourcesCount(): number {

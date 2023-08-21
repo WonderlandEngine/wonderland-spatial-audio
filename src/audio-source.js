@@ -27,10 +27,10 @@ export class AudioSource extends Component {
     this.update = this._update.bind(this);
   }
 
-  play() {
-    getAudioMixer()
-      .playAudio(this.audioID)
-      .addEventListener("ended", this.onEnded.notify.bind(this.onEnded));
+  async play() {
+    const prom = await getAudioMixer()
+        .playAudio(this.audioID);
+    prom.addEventListener("ended", this.onEnded.notify.bind(this.onEnded));
   }
 
   stop() {
