@@ -19,7 +19,7 @@ import {MouseLookComponent} from '@wonderlandengine/components';
 import {PlayerHeight} from '@wonderlandengine/components';
 import {TeleportComponent} from '@wonderlandengine/components';
 import {VrModeActiveSwitch} from '@wonderlandengine/components';
-import {Listener} from './../../src/listener.js';
+import {Listener} from 'wonderland-spatial-audio';
 import {BallSpawner} from './ball-spawner.js';
 import {ButtonComponent} from './button.js';
 import {HoveringAnim} from './hovering-anim.js';
