@@ -28,9 +28,9 @@ export class AudioSource extends Component {
   }
 
   async play() {
-    const prom = await getAudioMixer()
-        .playAudio(this.audioID);
-    prom.addEventListener("ended", this.onEnded.notify.bind(this.onEnded));
+    const audio = await getAudioMixer();
+    audio.playAudio(this.audioID);
+    audio.addEventListener("ended", this.onEnded.notify.bind(this.onEnded));
   }
 
   stop() {
