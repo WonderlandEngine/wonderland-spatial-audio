@@ -1,5 +1,5 @@
 import {Component, Property} from '@wonderlandengine/api';
-import { AudioSource } from "../../src/audio-source";
+import { AudioSource } from "../../src/audio-source.js";
 import {HoveringAnim} from "./hovering-anim.js";
 
 const tempVec = new Float32Array(3);

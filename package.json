@@ -2,10 +2,21 @@
   "name": "wonderland-spatial-audio",
   "version": "1.0.0",
   "description": "Spatial audio component for Wonderland Engine",
+  "author": "Wonderland GmbH",
+  "license": "MIT",
   "wonderlandengine": {},
-  "main": "index.ts",
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./audio-mixer.js": "./dist/audio-mixer.js",
+    "./audio-source.js": "./dist/audio-source.js",
+    "./listener.js": "./dist/listener.js"
+  },
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
     "pretty": "prettier --config ./prettierrc.json --write \"src/**/*.ts\" \"test/**/*.ts\""
   },
@@ -16,22 +27,18 @@
   "keywords": [
     "audio"
   ],
-  "author": "Timothy Hale",
-  "license": "MIT",
   "bugs": {
     "url": "https://github.com/WonderlandEngine/wonderland-spatial-audio/issues"
   },
   "dependencies": {
-    "gl-matrix": "^3.4.3",
-    "@wonderlandengine/api": "^1.0.0"
+    "gl-matrix": "^3.4.3"
   },
   "peerDependencies": {
     "@wonderlandengine/api": "^1.0.0"
   },
   "homepage": "https://github.com/WonderlandEngine/wonderland-spatial-audio#readme",
   "devDependencies": {
-    "@types/node": "^20.4.9",
-    "esbuild": "^0.17.19",
+    "@wonderlandengine/api": "^1.0.0",
     "prettier": "3.0.0",
     "typescript": "^5.1.3"
   }

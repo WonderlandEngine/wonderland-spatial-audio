@@ -7,7 +7,7 @@
  *
  */
 import {Object3D} from '@wonderlandengine/api';
-import {cartesianToInteraural, HRTFPanner, loadHrir} from './hrtf.ts';
+import {cartesianToInteraural, HRTFPanner, loadHrir} from './hrtf.js';
 import {vec3} from 'gl-matrix';
 
 /**
@@ -16,7 +16,7 @@ import {vec3} from 'gl-matrix';
 const tempVec: Float32Array = new Float32Array(3);
 const HRTF_BIN: string = './hrtf_128.bin';
 const INIT_GAIN = 0.3;
-const audioFiles: { [key: string]: Promise<AudioBuffer> } = {};
+const audioFiles: {[key: string]: Promise<AudioBuffer>} = {};
 
 export const CONV_FREQ: number = 150;
 
@@ -87,7 +87,6 @@ export class AudioMixer {
         position: Float32Array,
         volume: number
     ): Promise<number> {
-
         this.getAudioData(audioFile);
         const gainNode: GainNode = _audioContext.createGain();
         gainNode.connect(this.lowPass);
@@ -176,10 +175,10 @@ export class AudioMixer {
     }
 
     private async getAudioData(file: string): Promise<void> {
-        if (audioFiles[file]) return;
+        if (await audioFiles[file]) return;
         const response = await fetch(file);
         const buffer = await response.arrayBuffer();
-        audioFiles[file] =   _audioContext.decodeAudioData(buffer);
+        audioFiles[file] = _audioContext.decodeAudioData(buffer);
     }
 
     get sourcesCount(): number {
@@ -187,7 +186,7 @@ export class AudioMixer {
     }
 }
 
-let audioMixer: AudioMixer;
+let audioMixer: AudioMixer | undefined;
 
 export function getAudioMixer() {
     if (audioMixer === undefined) {

@@ -83,7 +83,7 @@ export class ButtonComponent extends Component {
     if(this.first) {
       this.first = false;
       const wel = this.welcome.getComponent(AudioSource);
-      wel.play();
+      await wel.play();
     } else {
       this.audio.startPlaying();
     }

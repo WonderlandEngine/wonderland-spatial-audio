@@ -4,7 +4,7 @@
  * Translated to TypeScript and using [MIT HRTF measurements](https://sound.media.mit.edu/resources/KEMAR.html)
  */
 
-import {_audioContext as audioContext, CONV_FREQ} from './audio-mixer.ts';
+import {_audioContext as audioContext, CONV_FREQ} from './audio-mixer.js';
 
 /**
  * Constants

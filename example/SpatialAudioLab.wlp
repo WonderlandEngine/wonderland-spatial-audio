@@ -2585,8 +2585,7 @@
         },
         "scripting": {
             "sourcePaths": [
-                "js/",
-                "../src"
+                "js/"
             ],
             "bundlingType": "esbuild",
             "libraryPaths": [
