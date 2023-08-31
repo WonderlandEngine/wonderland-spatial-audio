@@ -1,5 +1,5 @@
 {
-  "name": "wonderland-spatial-audio",
+  "name": "@wonderlandengine/spatial-audio",
   "version": "1.0.0",
   "description": "Spatial audio component for Wonderland Engine",
   "author": "Wonderland GmbH",
@@ -10,15 +10,18 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./audio-mixer.js": "./dist/audio-mixer.js",
-    "./audio-source.js": "./dist/audio-source.js",
-    "./listener.js": "./dist/listener.js"
+    ".": "./dist/index.js"
   },
+  "files": [
+    "dist/**/*.d.ts",
+    "dist/**/*.js",
+    "static/hrtf_128.bin"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "pretty": "prettier --config ./prettierrc.json --write \"src/**/*.ts\" \"test/**/*.ts\""
+    "pretty": "prettier --config ./prettierrc.json --write \"example/js/*.js\" \"src/**/*.ts\" \"test/**/*.ts\""
   },
   "repository": {
     "type": "git",

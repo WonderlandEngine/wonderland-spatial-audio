@@ -6,6 +6,7 @@ import {AudioMixer, getAudioMixer} from './audio-mixer.js';
  */
 export class Listener extends Component {
     static TypeName = 'listener';
+    static Properties = {};
     private audioMixer: AudioMixer | undefined = undefined;
 
     onActivate() {

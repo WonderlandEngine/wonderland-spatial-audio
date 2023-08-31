@@ -1,6 +1,6 @@
 import {Component, Property} from '@wonderlandengine/api';
-import { AudioSource } from "../../src/audio-source.js";
-import {HoveringAnim} from "./hovering-anim.js";
+import {HoveringAnim} from './hovering-anim.js';
+import {AudioSource} from '@wonderlandengine/spatial-audio';
 
 const tempVec = new Float32Array(3);
 /**
@@ -13,7 +13,7 @@ export class BallSpawner extends Component {
         ballCount: Property.int(2),
         mesh: Property.mesh(),
         mat: Property.material(),
-        textComp: Property.object()
+        textComp: Property.object(),
     };
 
     static onRegister(engine) {
@@ -32,22 +32,22 @@ export class BallSpawner extends Component {
         this.text.text = this.ballCount;
 
         /* Attach meshes */
-        for(let o of this.balls) {
+        for (let o of this.balls) {
             let mesh = o.addComponent('mesh');
             mesh.mesh = this.mesh;
             mesh.material = this.mat;
             o.setScalingWorld([0.5, 0.5, 0.5]);
             const rand = Math.floor(Math.random() * 4) + 1;
             o.addComponent(AudioSource, {
-                audioFile: "sfx/" + rand + ".wav",
-                volume: 1.0
+                audioFile: 'sfx/' + rand + '.wav',
+                volume: 1.0,
             });
 
             o.addComponent(HoveringAnim, {
                 speed: 0.5,
                 height: 2,
-                fixedZ: false
-            })
+                fixedZ: false,
+            });
             o.active = false;
         }
     }
@@ -57,21 +57,20 @@ export class BallSpawner extends Component {
     }
 
     startPlaying() {
-        for(let o of this.balls) {
+        for (let o of this.balls) {
             tempVec[0] = Math.random() * 40 - 20;
             tempVec[1] = Math.random() * 6 + 1;
             tempVec[2] = Math.random() * 40 - 20;
 
             const audio = o.getComponent(AudioSource);
-            if(audio.isPlaying()) {
-               audio.stop();
+            if (audio.isPlaying()) {
+                audio.stop();
                 o.active = false;
             } else {
                 o.setPositionWorld(tempVec);
                 audio.play();
                 o.active = true;
             }
-
         }
     }
 }
