@@ -41,7 +41,6 @@
   },
   "homepage": "https://github.com/WonderlandEngine/wonderland-spatial-audio#readme",
   "devDependencies": {
-    "@wonderlandengine/api": "^1.0.0",
     "prettier": "3.0.0",
     "typescript": "^5.1.3"
   }

@@ -104,6 +104,4 @@ export class ButtonComponent extends Component {
 
         hapticFeedback(cursor.object, 0.3, 50);
     }
-
-    update(dt) {}
 }
