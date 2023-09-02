@@ -29,19 +29,30 @@ export class AudioSource extends Component {
         this.update = this._update.bind(this);
     }
 
+    /**
+     * Play the audio that is connected to the stored audioID
+     */
     async play() {
         getAudioMixer().playAudio(this.audioID);
     }
 
+    /**
+     * Stop the audio that is connected to the stored audioID
+     */
     stop() {
         getAudioMixer().stopAudio(this.audioID);
     }
 
+    /**
+     * Check if the audio is currently playing
+     *
+     * @returns {true} if the audio is playing
+     */
     isPlaying() {
         return getAudioMixer().isPlaying(this.audioID);
     }
 
-    _update() {
+    private _update() {
         getAudioMixer().updatePosition(this.audioID, this.object.getPositionWorld(tempVec));
     }
 }
