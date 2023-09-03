@@ -2,3 +2,5 @@
 **/.editor/
 **/node_modules/
 **/cache/
+
+static/
