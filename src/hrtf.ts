@@ -14,6 +14,8 @@ const THRESHOLD = 0.1;
 const EIGHTY_PI = 180 / Math.PI;
 const REFDISTANCE = 1.0;
 const ROLLOFF = 0.5;
+const SHORT_MAX = 0x7fff;
+const SHORT_NORM_TO_FLOAT = 1.0/SHORT_MAX;
 
 /**
  * Variables
@@ -35,35 +37,38 @@ export async function loadHrir(hrir_path: string): Promise<boolean> {
     const response = await fetch(hrir_path);
     const buffer = await response.arrayBuffer();
 
-    let count: number = 0;
     let points: [number, number, number][] = [];
-    if (buffer) {
-        let offset = 0;
-        hrir = new Float32Array(buffer);
-        while (offset < hrir.length) {
-            const elevation = hrir[offset];
-            offset++;
+    if (!buffer) return false;
 
-            const azimuth = hrir[offset];
-            offset++;
 
-            points.push([elevation, azimuth, count]);
+    const measurementCount = new Uint32Array(buffer)[0];
+    const bufferU16 = new Uint16Array(buffer);
 
-            offset += sampleSize * 2 + 2;
-            count += 2;
-        }
-        points.sort((a, b) => {
-            if (a[0] !== b[0]) {
-                return a[0] - b[0];
-            }
-
-            /* Sort from large to small on azimuth */
-            return b[1] - a[1];
-        });
-        sortedPoints = points.flat();
-        return true;
+    /* Our sample data is U16 normalized shorts, we convert to F32 here. */
+    hrir = new Float32Array(measurementCount * sampleSize); // TODO: Sample size + 2? maybe modify in getSampleSizeFromPathName if correct
+    const hrirU16 = bufferU16.subarray(4 + measurementCount*2);
+    for(let i = 0; i < hrir.length; ++i) {
+        hrir[i] = hrirU16[i]*SHORT_NORM_TO_FLOAT;
     }
-    return false;
+
+    let offset = 2; /* Skip measurementCount int, 4 = 2 x 2 bytes */
+    for (let i = 0; i < measurementCount; ++i) {
+        const elevation = bufferU16[offset];
+        const azimuth = bufferU16[offset + 1];
+        points.push([elevation, azimuth, i*2]);
+        offset += 2;
+    }
+
+    points.sort((a, b) => {
+        if (a[0] !== b[0]) {
+            return a[0] - b[0];
+        }
+
+        /* Sort from large to small on azimuth */
+        return b[1] - a[1];
+    });
+    sortedPoints = points.flat();
+    return true;
 }
 
 function interpolateHRIR(
@@ -77,9 +82,9 @@ function interpolateHRIR(
     /* Largest elevation only has 1 measurement */
     if (elevMin === 90) {
         const bufferIndexOf90 = sortedPoints[sortedPoints.length - 1];
-        const blockSize = sampleSize + 2;
-        const iL: number = bufferIndexOf90 * blockSize + 2;
-        const iR: number = (bufferIndexOf90 + 1) * blockSize + 2;
+        const blockSize = sampleSize; // TODO: + 2 ??
+        const iL: number = bufferIndexOf90 * blockSize;
+        const iR: number = (bufferIndexOf90 + 1) * blockSize;
         for (let i = 0; i < sampleSize; ++i) {
             out[0][i] = hrir[iL + i];
             out[1][i] = hrir[iR + i];
@@ -105,21 +110,23 @@ function interpolateHRIR(
         const aziWeight1 = 1 - aziWeight0;
 
         const bufferIndexOf90 = sortedPoints[sortedPoints.length - 1];
-        const blockSize = sampleSize + 2;
-        const iL: number = bufferIndexOf90 * blockSize + 2;
-        const iR: number = (bufferIndexOf90 + 1) * blockSize + 2;
-        const iMinL: number = bufferIndexMin * blockSize + 2;
-        const iMinR: number = (bufferIndexMin + 1) * blockSize + 2;
-        const iMaxL: number = bufferIndexMax * blockSize + 2;
-        const iMaxR: number = (bufferIndexMax + 1) * blockSize + 2;
+        const blockSize = sampleSize; // TODO: +2 ??
+        const iL = bufferIndexOf90 * blockSize;
+        const iR = (bufferIndexOf90 + 1) * blockSize;
+        const minL = hrir[bufferIndexMin * blockSize];
+        const minR = hrir[(bufferIndexMin + 1) * blockSize];
+        const maxL = hrir[bufferIndexMax * blockSize];
+        const maxR = hrir[(bufferIndexMax + 1) * blockSize];
+
         for (let i = 0; i < sampleSize; ++i) {
             out[0][i] =
                 elevWeight2 * hrir[iL + i] +
-                elevWeight1 * (aziWeight0 * hrir[iMinL] + aziWeight1 * hrir[iMaxL]);
+                elevWeight1 * (aziWeight0 * minL + aziWeight1 * maxL);
             out[1][i] =
                 elevWeight2 * hrir[iR + i] +
-                elevWeight1 * (aziWeight0 * hrir[iMinR] + aziWeight1 * hrir[iMaxR]);
+                elevWeight1 * (aziWeight0 * minR + aziWeight1 * maxR);
         }
+
         return;
     }
 
