@@ -15,7 +15,7 @@
   "files": [
     "dist/**/*.d.ts",
     "dist/**/*.js",
-    "hrtf/hrtf_128.bin.gz",
+    "hrtf/hrtf_128.bin",
     "scripts/postinstall-script.js"
   ],
   "scripts": {

@@ -33,6 +33,13 @@ export class AudioSource extends Component {
      * Play the audio that is connected to the stored audioID
      */
     async play() {
+        /* Positions do not get updated if audio is not playing, so we need to
+         * update the position here once with the specialUpdate flag enabled. */
+        getAudioMixer().updatePosition(
+            this.audioID,
+            this.object.getPositionWorld(tempVec),
+            true
+        );
         getAudioMixer().playAudio(this.audioID);
     }
 

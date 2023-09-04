@@ -110,13 +110,18 @@ export class AudioMixer {
      *
      * @param sourceId ID of the source that needs updating
      * @param position Position to where it moved to
+     * @param specialUpdate Set this flag to update even if audio is not playing
      * @returns true if update succeeded, false otherwise
      */
-    updatePosition(sourceId: number, position: Float32Array): boolean {
+    updatePosition(
+        sourceId: number,
+        position: Float32Array,
+        specialUpdate = false
+    ): boolean {
         if (
             sourceId >= this.sources.length ||
             this.listener === undefined ||
-            !this.isPlaying(sourceId)
+            (!this.isPlaying(sourceId) && !specialUpdate)
         ) {
             return false;
         }

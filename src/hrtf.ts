@@ -9,13 +9,13 @@ import {_audioContext as audioContext, CONV_FREQ} from './audio-mixer.js';
 /**
  * Constants
  */
-const CROSSFADE_DUR = 256 / 1000;
+const CROSSFADE_DUR = 128 / 1000;
 const THRESHOLD = 0.1;
 const EIGHTY_PI = 180 / Math.PI;
 const REFDISTANCE = 1.0;
 const ROLLOFF = 0.5;
 const SHORT_MAX = 0x7fff;
-const SHORT_NORM_TO_FLOAT = 1.0/SHORT_MAX;
+const SHORT_NORM_TO_FLOAT = 1.0 / SHORT_MAX;
 
 /**
  * Variables
@@ -40,23 +40,23 @@ export async function loadHrir(hrir_path: string): Promise<boolean> {
     let points: [number, number, number][] = [];
     if (!buffer) return false;
 
+    const bufferi16 = new Int16Array(buffer);
+    const measurementCount = bufferi16[0];
 
-    const measurementCount = new Uint32Array(buffer)[0];
-    const bufferU16 = new Uint16Array(buffer);
-
-    /* Our sample data is U16 normalized shorts, we convert to F32 here. */
-    hrir = new Float32Array(measurementCount * sampleSize); // TODO: Sample size + 2? maybe modify in getSampleSizeFromPathName if correct
-    const hrirU16 = bufferU16.subarray(4 + measurementCount*2);
-    for(let i = 0; i < hrir.length; ++i) {
-        hrir[i] = hrirU16[i]*SHORT_NORM_TO_FLOAT;
+    /* Our sample data is U16 shorts, we convert to F32 here. */
+    hrir = new Float32Array(measurementCount * sampleSize);
+    const hrirU16 = bufferi16.subarray(2 + measurementCount * 2);
+    for (let i = 0; i < hrir.length; ++i) {
+        hrir[i] = hrirU16[i] * SHORT_NORM_TO_FLOAT;
     }
 
-    let offset = 2; /* Skip measurementCount int, 4 = 2 x 2 bytes */
-    for (let i = 0; i < measurementCount; ++i) {
-        const elevation = bufferU16[offset];
-        const azimuth = bufferU16[offset + 1];
-        points.push([elevation, azimuth, i*2]);
-        offset += 2;
+    let offset = 1; /* Skip measurementCount int */
+    for (let i = 0; i < measurementCount / 2; ++i) {
+        const elevation = bufferi16[offset];
+        const azimuth = bufferi16[offset + 1];
+        points.push([elevation, azimuth, i * 2]);
+        /* Skip the right ear because the point is the same */
+        offset += 4;
     }
 
     points.sort((a, b) => {
@@ -82,7 +82,7 @@ function interpolateHRIR(
     /* Largest elevation only has 1 measurement */
     if (elevMin === 90) {
         const bufferIndexOf90 = sortedPoints[sortedPoints.length - 1];
-        const blockSize = sampleSize; // TODO: + 2 ??
+        const blockSize = sampleSize;
         const iL: number = bufferIndexOf90 * blockSize;
         const iR: number = (bufferIndexOf90 + 1) * blockSize;
         for (let i = 0; i < sampleSize; ++i) {
@@ -212,15 +212,15 @@ function interpolateHRIR(
     const aziWeight1 = 1 - aziWeight0;
     const aziWeight3 = 1 - aziWeight2;
 
-    const blockSize = sampleSize + 2;
-    const iAL = bufferIndex[0] * blockSize + 2;
-    const iAR = (bufferIndex[0] + 1) * blockSize + 2;
-    const iBL = bufferIndex[1] * blockSize + 2;
-    const iBR = (bufferIndex[1] + 1) * blockSize + 2;
-    const iCL = bufferIndex[2] * blockSize + 2;
-    const iCR = (bufferIndex[2] + 1) * blockSize + 2;
-    const iDL = bufferIndex[3] * blockSize + 2;
-    const iDR = (bufferIndex[3] + 1) * blockSize + 2;
+    const blockSize = sampleSize;
+    const iAL = bufferIndex[0] * blockSize;
+    const iAR = (bufferIndex[0] + 1) * blockSize;
+    const iBL = bufferIndex[1] * blockSize;
+    const iBR = (bufferIndex[1] + 1) * blockSize;
+    const iCL = bufferIndex[2] * blockSize;
+    const iCR = (bufferIndex[2] + 1) * blockSize;
+    const iDL = bufferIndex[3] * blockSize;
+    const iDR = (bufferIndex[3] + 1) * blockSize;
 
     for (let i = 0; i < sampleSize; ++i) {
         out[0][i] =
@@ -258,8 +258,8 @@ export class HRTFPanner {
         this.source = sourceNode;
         this.source.channelCount = 1;
         this.source.connect(this.hiPass);
-        this.hiPass.connect(this.currentConvolver.delay);
-        this.hiPass.connect(this.targetConvolver.delay);
+        this.hiPass.connect(this.currentConvolver.convolver);
+        this.hiPass.connect(this.targetConvolver.convolver);
         this.currentConvolver.fadeGain.connect(audioContext.destination);
         this.targetConvolver.fadeGain.connect(audioContext.destination);
 
@@ -292,7 +292,6 @@ export class HRTFPanner {
 
             const currTime = audioContext.currentTime;
             this.endOfTransition = currTime + CROSSFADE_DUR;
-            this.targetConvolver.delay.delayTime.setValueAtTime(distance / 340, currTime);
 
             this.source.gain.setValueAtTime(this.oldVol, currTime);
             this.source.gain.linearRampToValueAtTime(vol, this.endOfTransition);
@@ -326,16 +325,13 @@ class HRTFConvolver {
     public convolver: ConvolverNode;
     public fadeGain: GainNode;
     public buffer: AudioBuffer;
-    public delay: DelayNode;
 
     constructor() {
         this.convolver = audioContext.createConvolver();
-        this.delay = audioContext.createDelay();
         this.convolver.normalize = false;
         this.fadeGain = audioContext.createGain();
         this.buffer = audioContext.createBuffer(2, sampleSize, audioContext.sampleRate);
         this.convolver.buffer = this.buffer;
-        this.delay.connect(this.convolver);
         this.convolver.connect(this.fadeGain);
     }
 

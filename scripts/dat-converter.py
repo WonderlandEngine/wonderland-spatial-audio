@@ -16,13 +16,16 @@ def convert_int_to_float(data):
 def save_data_to_file(data_arrays):
     # Organize the data and save it to a binary file
     with open("hrtf_" + str(sample_size) + ".bin", "wb") as file:
-        file.write(struct.pack("I", len(data_arrays)))
+        print(len(data_arrays))
+        file.write(struct.pack("h", len(data_arrays)))
         for elevation, azimuth, _ in data_arrays:
             # Write azimuth, elevation, and data to the file
-            file.write(struct.pack("hh", azimuth, elevation))
+            file.write(struct.pack("hh", elevation, azimuth))
 
         for _, _, data in data_arrays:
-            file.write(data.tobytes())
+            for nums in data:
+                binary_data = struct.pack('h', nums)
+                file.write(binary_data)
 
 # Specify the file path
 pattern = r'e(.*?)a'
@@ -45,7 +48,7 @@ for i in number_range:
                     encoded_data.append((sample))
                 azi_key = int(azi)
                 if filename.startswith("L"):
-                    data_arrays.append([i, int(azi), convert_int_to_float(encoded_data[40:sample_size + 40])])
+                    data_arrays.append([i, int(azi), encoded_data[40:sample_size + 40]])
                     file_path = os.path.join(folder_path, filename.replace("L", "R", 1))
                     with open(file_path, "rb") as file:
                     # Read the raw data from the file
@@ -56,7 +59,6 @@ for i in number_range:
                             sample = struct.unpack(">h", raw_data[j:j+2])[0]  # Unpack as big-endian short (16-bit)
                             encoded_data.append((sample))
                         azi_key = int(azi)
-                        print(str(len(encoded_data[40:sample_size + 40])))
                         data_arrays.append([i, int(azi), encoded_data[40:sample_size + 40]])
                 elif filename.startswith("R"):
                     continue
