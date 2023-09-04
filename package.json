@@ -15,15 +15,14 @@
   "files": [
     "dist/**/*.d.ts",
     "dist/**/*.js",
-    "hrtf/hrtf_128.bin",
-    "postinstall-script.js"
+    "hrtf/hrtf_128.bin.gz",
+    "scripts/postinstall-script.js"
   ],
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
-    "test": "echo \"Error: no test specified\" && exit 1",
     "pretty": "prettier --config ./prettierrc.json --write \"example/js/*.js\" \"src/**/*.ts\" \"test/**/*.ts\"",
-    "postinstall": "node ./postinstall-script.js"
+    "postinstall": "node ./scripts/postinstall-script.js"
   },
   "repository": {
     "type": "git",
