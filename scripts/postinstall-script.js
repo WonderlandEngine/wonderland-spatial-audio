@@ -23,8 +23,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 
 const pathToScript = fileURLToPath(import.meta.url);
-/* We assume npm install is called on project root, since the root package.json resides there. */
-const projectRoot = process.cwd();
+const projectRoot = trimUntilBeforeNodeModules(pathToScript);
 const sourceFile = path.join(path.dirname(pathToScript), '..', 'hrtf', 'hrtf_128.bin');
 
 const destinationFile = path.join(projectRoot, 'static', 'hrtf_128.bin');
@@ -37,4 +36,13 @@ if (fs.existsSync(destinationFile)) {
 } else {
     fs.copyFileSync(sourceFile, destinationFile);
     console.log('File copied successfully!');
+}
+
+function trimUntilBeforeNodeModules(inputString) {
+    const indexOfNodeModules = inputString.lastIndexOf('node_modules');
+    if (indexOfNodeModules !== -1) {
+        return inputString.slice(0, indexOfNodeModules);
+    } else {
+        return undefined;
+    }
 }
