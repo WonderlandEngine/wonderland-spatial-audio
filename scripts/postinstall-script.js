@@ -26,16 +26,20 @@ const pathToScript = fileURLToPath(import.meta.url);
 const projectRoot = trimUntilBeforeNodeModules(pathToScript);
 const sourceFile = path.join(path.dirname(pathToScript), '..', 'hrtf', 'hrtf_128.bin');
 
-const destinationFile = path.join(projectRoot, 'static', 'hrtf_128.bin');
-const destinationFolder = path.join(projectRoot, 'static');
-
-if (!fs.existsSync(destinationFolder)) fs.mkdirSync(destinationFolder);
-
-if (fs.existsSync(destinationFile)) {
-    console.log('File already exists, skipping copy.');
+if(projectRoot === undefined) {
+    console.log('Could not locate project root directory.');
 } else {
-    fs.copyFileSync(sourceFile, destinationFile);
-    console.log('File copied successfully!');
+    const destinationFile = path.join(projectRoot, 'static', 'hrtf_128.bin');
+    const destinationFolder = path.join(projectRoot, 'static');
+
+    if (!fs.existsSync(destinationFolder)) fs.mkdirSync(destinationFolder);
+
+    if (fs.existsSync(destinationFile)) {
+        console.log('File already exists, skipping copy.');
+    } else {
+        fs.copyFileSync(sourceFile, destinationFile);
+        console.log('File copied successfully!');
+    }
 }
 
 function trimUntilBeforeNodeModules(inputString) {

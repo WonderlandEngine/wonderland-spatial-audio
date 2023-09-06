@@ -1579,10 +1579,6 @@
                     "active": true
                 },
                 {
-                    "type": "listener",
-                    "active": true
-                },
-                {
                     "type": "input",
                     "input": {
                         "type": "eye left"
@@ -1665,7 +1661,7 @@
                 {
                     "type": "ball-spawner",
                     "ball-spawner": {
-                        "ballCount": 3,
+                        "ballCount": 30,
                         "mesh": "9",
                         "mat": "249",
                         "textComp": "315"
@@ -2575,8 +2571,8 @@
             "name": "SpatialAudioLab",
             "version": [
                 1,
-                0,
-                4
+                1,
+                0
             ]
         },
         "vr": {

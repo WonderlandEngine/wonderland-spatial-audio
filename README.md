@@ -16,14 +16,15 @@ and place it into your project's `static` folder.
 These measurements are essential for accurate sound localization based on
 individual listener differences.
 
-### Setting Up the Listener:
+### Setting Up the HrtfListener:
 
-Add the `listener` component to the Player Head object. This ensures
-correct receiver positioning.
+Add the `hrtf-listener` component to the Player Head object. This ensures
+correct receiver positioning. Note that if you want to test the spatial audio on you computer, you need to attach it
+to the `NonVrCamera`.
 
 ### Defining Audio Sources:
 
-To create dynamic and realistic sound sources, add the audio-source
+To create dynamic and realistic sound sources, add the `hrtf-audio-source`
 component to the objects from which the sound is supposed to emanate.
 In the component, specify the location of the audio file and set the
 maximum allowed volume of the source (ranging from 0 to 1, where 1

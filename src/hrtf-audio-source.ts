@@ -1,14 +1,14 @@
 import {Component, Emitter} from '@wonderlandengine/api';
-import {getAudioMixer} from './audio-mixer.js';
+import {getAudioMixer} from './hrft-audio-mixer.js';
 import {property} from '@wonderlandengine/api/decorators.js';
 
 const tempVec = new Float32Array(3);
 
 /**
- * Adds a audio source to the AudioMixer and saves its audioID.
+ * Adds a audio source to the HrftAudioMixer and saves its audioID.
  */
-export class AudioSource extends Component {
-    static TypeName = 'audio-source';
+export class HrtfAudioSource extends Component {
+    static TypeName = 'hrtf-audio-source';
 
     @property.string()
     audioFile!: string;

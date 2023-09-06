@@ -1,13 +1,13 @@
 import {Component} from '@wonderlandengine/api';
-import {AudioMixer, getAudioMixer} from './audio-mixer.js';
+import {HrftAudioMixer, getAudioMixer} from './hrft-audio-mixer.js';
 
 /**
  * listener
  */
-export class Listener extends Component {
-    static TypeName = 'listener';
+export class HrtfListener extends Component {
+    static TypeName = 'hrtf-listener';
     static Properties = {};
-    private audioMixer: AudioMixer | undefined = undefined;
+    private audioMixer: HrftAudioMixer | undefined = undefined;
 
     onActivate() {
         this.audioMixer = getAudioMixer();

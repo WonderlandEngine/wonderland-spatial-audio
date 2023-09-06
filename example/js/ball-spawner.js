@@ -1,6 +1,6 @@
 import {Component, Property} from '@wonderlandengine/api';
 import {HoveringAnim} from './hovering-anim.js';
-import {AudioSource} from '@wonderlandengine/spatial-audio';
+import {HrtfAudioSource} from '@wonderlandengine/spatial-audio';
 
 const tempVec = new Float32Array(3);
 /**
@@ -20,7 +20,7 @@ export class BallSpawner extends Component {
         /* Triggered when this component class is registered.
          * You can for instance register extra component types here
          * that your component may create. */
-        engine.registerComponent(AudioSource);
+        engine.registerComponent(HrtfAudioSource);
         engine.registerComponent(HoveringAnim);
     }
 
@@ -38,7 +38,7 @@ export class BallSpawner extends Component {
             mesh.material = this.mat;
             o.setScalingWorld([0.5, 0.5, 0.5]);
             const rand = Math.floor(Math.random() * 4) + 1;
-            o.addComponent(AudioSource, {
+            o.addComponent(HrtfAudioSource, {
                 audioFile: 'sfx/' + rand + '.wav',
                 volume: 1.0,
             });
@@ -62,7 +62,7 @@ export class BallSpawner extends Component {
             tempVec[1] = Math.random() * 6 + 1;
             tempVec[2] = Math.random() * 40 - 20;
 
-            const audio = o.getComponent(AudioSource);
+            const audio = o.getComponent(HrtfAudioSource);
             if (audio.isPlaying()) {
                 audio.stop();
                 o.active = false;

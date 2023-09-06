@@ -1,6 +1,6 @@
 import {Component, MeshComponent, Property, Emitter} from '@wonderlandengine/api';
 import {CursorTarget} from '@wonderlandengine/components';
-import {AudioSource} from '@wonderlandengine/spatial-audio';
+import {HrtfAudioSource} from '@wonderlandengine/spatial-audio';
 
 /**
  * Helper function to trigger haptic feedback pulse.
@@ -45,16 +45,16 @@ export class ButtonComponent extends Component {
         target.onDown.add(this.onDown.bind(this));
         target.onUp.add(this.onUp.bind(this));
         this.returnPos = this.object.getPositionLocal();
-        this.click = this.object.addComponent(AudioSource, {
+        this.click = this.object.addComponent(HrtfAudioSource, {
             audioFile: 'sfx/click.wav',
             volume: 0.1,
         });
-        this.unclick = this.object.addComponent(AudioSource, {
+        this.unclick = this.object.addComponent(HrtfAudioSource, {
             audioFile: 'sfx/unclick.wav',
             volume: 0.1,
         });
         this.welcome = WL.scene.addObject(this.object);
-        this.welcome.addComponent(AudioSource, {
+        this.welcome.addComponent(HrtfAudioSource, {
             audioFile: 'sfx/welcome.wav',
             volume: 0.5,
         });
@@ -76,7 +76,7 @@ export class ButtonComponent extends Component {
         this.click.play();
         if (this.first) {
             this.first = false;
-            const wel = this.welcome.getComponent(AudioSource);
+            const wel = this.welcome.getComponent(HrtfAudioSource);
             await wel.play();
         } else {
             this.audio.startPlaying();

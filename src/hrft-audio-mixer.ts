@@ -34,7 +34,7 @@ export {_audioContext};
  *
  * @note Use the getAudioMixer() function to get access to it.
  */
-export class AudioMixer {
+export class HrftAudioMixer {
     private listener: Object3D | undefined;
     private readonly sources: [string, HRTFPanner, GainNode][];
     private readonly audioNodes: (AudioBufferSourceNode | undefined)[];
@@ -42,9 +42,9 @@ export class AudioMixer {
     private readonly lowPass: BiquadFilterNode;
 
     /**
-     * Create a new AudioMixer instance.
+     * Create a new HrftAudioMixer instance.
      *
-     * Use the exported 'getAudioMixer()' function to access the AudioMixer.
+     * Use the exported 'getAudioMixer()' function to access the HrftAudioMixer.
      *
      */
     constructor() {
@@ -62,7 +62,7 @@ export class AudioMixer {
     }
 
     /**
-     * Sets the listener object in the AudioMixer.
+     * Sets the listener object in the HrftAudioMixer.
      *
      * @param object The listener that receives the audio
      *
@@ -191,11 +191,11 @@ export class AudioMixer {
     }
 }
 
-let audioMixer: AudioMixer | undefined;
+let audioMixer: HrftAudioMixer | undefined;
 
 export function getAudioMixer() {
     if (audioMixer === undefined) {
-        audioMixer = new AudioMixer();
+        audioMixer = new HrftAudioMixer();
     }
     return audioMixer;
 }
