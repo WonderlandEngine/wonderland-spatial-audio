@@ -12,7 +12,7 @@
   "dependencies": {
     "@wonderlandengine/api": "^1.0.0",
     "@wonderlandengine/components": "^1.0.3",
-    "@wonderlandengine/spatial-audio": "file:..",
+    "@wonderlandengine/spatial-audio": "file:../",
     "gl-matrix": "^3.4.3"
   },
   "devDependencies": {

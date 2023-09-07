@@ -1,3 +1,2 @@
-export {HrftAudioMixer, getAudioMixer} from './hrft-audio-mixer.js';
-export {HrtfAudioSource} from './hrtf-audio-source.js';
-export {HrtfListener} from './hrtf-listener.js';
+export {WlAudioSource} from './wl-audio-source.js';
+export {WlListener} from './wl-listener.js';

@@ -11,10 +11,14 @@ jobs:
     container:
       image: wonderlandengine/editor:latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 18
     - name: Package
       run: |
         npm ci
+        npm run build
         cd example
         /usr/local/bin/entrypoint.sh WonderlandEditor --windowless --package --project ./SpatialAudioLab.wlp --credentials "$WLE_CREDENTIALS"
         cd ..

@@ -14,15 +14,12 @@
   },
   "files": [
     "dist/**/*.d.ts",
-    "dist/**/*.js",
-    "hrtf/hrtf_128.bin",
-    "scripts/postinstall-script.js"
+    "dist/**/*.js"
   ],
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
     "pretty": "prettier --config ./prettierrc.json --write \"example/js/*.js\" \"src/**/*.ts\" \"test/**/*.ts\"",
-    "postinstall": "node ./scripts/postinstall-script.js",
     "clean": "rimraf dist"
   },
   "repository": {
@@ -37,6 +34,7 @@
   },
   "peerDependencies": {
     "@wonderlandengine/api": "^1.0.0",
+    "@wonderlandengine/components": "^1.0.6",
     "gl-matrix": "^3.4.3"
   },
   "homepage": "https://github.com/WonderlandEngine/wonderland-spatial-audio#readme",
@@ -44,5 +42,7 @@
     "prettier": "3.0.0",
     "rimraf": "^5.0.1",
     "typescript": "^5.1.3"
+  },
+  "dependencies": {
   }
 }

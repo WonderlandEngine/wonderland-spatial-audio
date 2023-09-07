@@ -1,6 +1,6 @@
 import {Component, MeshComponent, Property, Emitter} from '@wonderlandengine/api';
 import {CursorTarget} from '@wonderlandengine/components';
-import {HrtfAudioSource} from '@wonderlandengine/spatial-audio';
+import {WlAudioSource} from '@wonderlandengine/spatial-audio';
 
 /**
  * Helper function to trigger haptic feedback pulse.
@@ -29,8 +29,13 @@ export class ButtonComponent extends Component {
         buttonLight: Property.object(),
         hoverMaterial: Property.material(),
     };
-    static Dependencies = [CursorTarget];
 
+    static onRegister(engine) {
+        /* Triggered when this component class is registered.
+         * You can for instance register extra component types here
+         * that your component may create. */
+        engine.registerComponent(CursorTarget);
+    }
     /* Position to return to when "unpressing" the button */
     returnPos = new Float32Array(3);
     start() {
@@ -45,18 +50,22 @@ export class ButtonComponent extends Component {
         target.onDown.add(this.onDown.bind(this));
         target.onUp.add(this.onUp.bind(this));
         this.returnPos = this.object.getPositionLocal();
-        this.click = this.object.addComponent(HrtfAudioSource, {
+        this.click = this.object.addComponent(WlAudioSource, {
             audioFile: 'sfx/click.wav',
-            volume: 0.1,
+            HRTF: true,
+            isStationary: true,
         });
-        this.unclick = this.object.addComponent(HrtfAudioSource, {
+        this.unclick = this.object.addComponent(WlAudioSource, {
             audioFile: 'sfx/unclick.wav',
-            volume: 0.1,
+            HRTF: true,
+            isStationary: true,
         });
         this.welcome = WL.scene.addObject(this.object);
-        this.welcome.addComponent(HrtfAudioSource, {
+        this.welcome.addComponent(WlAudioSource, {
             audioFile: 'sfx/welcome.wav',
-            volume: 0.5,
+            HRTF: true,
+            autoplay: true,
+            isStationary: true,
         });
         this.welcome.setPositionWorld([-5, 1, 2]);
         this.first = true;
@@ -74,13 +83,7 @@ export class ButtonComponent extends Component {
     /* Called by 'cursor-target' */
     async onDown(_, cursor) {
         this.click.play();
-        if (this.first) {
-            this.first = false;
-            const wel = this.welcome.getComponent(HrtfAudioSource);
-            await wel.play();
-        } else {
-            this.audio.startPlaying();
-        }
+        this.audio.startPlaying();
         this.object.setPositionLocal([
             this.returnPos[0],
             this.returnPos[1] - 0.08,
