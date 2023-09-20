@@ -12,11 +12,11 @@ const distanceModels = ['linear', 'exponential', 'inverse'];
 /**
  * Represents an audio source in the Wonderland Engine, allowing playback of audio files.
  */
-export class WlAudioSource extends Component {
+export class AudioSource extends Component {
     /**
      * The type name for this component.
      */
-    static TypeName = 'wl-audio-source';
+    static TypeName = 'audio-source';
 
     /** Path to the audio file that should be played. */
     @property.string()

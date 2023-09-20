@@ -9,14 +9,14 @@ const tempVec: Float32Array = new Float32Array(3);
  *
  * @note Only one listener should be active at a time.
  */
-export class WlListener extends Component {
-    static TypeName = 'wl-listener';
+export class AudioListener extends Component {
+    static TypeName = 'audio-listener';
     static Properties = {};
 
     /**
      * The WebAudio listener instance associated with this component.
      */
-    private readonly listener: AudioListener = _audioContext.listener;
+    private readonly listener = _audioContext.listener;
 
     /**
      * The time in which the last position update will be done.

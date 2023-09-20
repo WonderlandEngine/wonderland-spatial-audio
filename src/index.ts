@@ -1,2 +1,2 @@
-export {WlAudioSource} from './wl-audio-source.js';
-export {WlListener} from './wl-listener.js';
+export {AudioSource} from './audio-source.js';
+export {AudioListener} from './audio-listener.js';
