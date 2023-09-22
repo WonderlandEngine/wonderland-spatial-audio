@@ -2,46 +2,27 @@
 
 # Wonderland Spatial Audio
 
-Welcome to Wonderland Spatial Audio, a set of spatial audio components
-designed for use with Wonderland Engine.
-This library incorporates Kemar measurements obtained by MIT, providing
-you with an immersive and more realistic 3D sound experience.
+The Wonderland Audio System simplifies audio management within the Wonderland Engine, offering efficient control over audio sources and listeners while enabling seamless updates of their positions and orientations in the WebAudio context.
 
-## How to Use
+## Usage Guide
 
-### Integration of HRTF Measurements:
+### Setting Up the AudioListener Component
 
-Copy the HRTF measurements binary file from `wonderland-spatial-audio/example/static/hrtf_128.bin`
-and place it into your project's `static` folder.
-These measurements are essential for accurate sound localization based on
-individual listener differences.
+1. Attach the `audio-listener` component to the `Player > Head` object. This ensures precise receiver positioning, with updates occurring each frame.
 
-### Setting Up the Listener:
+2. For testing spatial audio on your computer, attach the `audio-listener` component to the `NonVrCamera`. Only one `AudioListener` component should be active at any given time.
 
-Add the `listener` component to the Player Head object. This ensures
-correct receiver positioning.
+### Defining Audio Sources
 
-### Defining Audio Sources:
+- To create dynamic and realistic sound sources, add the `audio-source` component to objects from which sound should be played. Set the audioFile property to a file in the `static` folder of your project (For `static/sfx/sound.mp3` enter `sfx/sound.mp3`).
+ 
+## Considerations
 
-To create dynamic and realistic sound sources, add the audio-source
-component to the objects from which the sound is supposed to emanate.
-In the component, specify the location of the audio file and set the
-maximum allowed volume of the source (ranging from 0 to 1, where 1
-represents 100%).
+### Best Practices
 
-## Current Considerations
+- **HRTF Performance:** The `HRTF` setting demands substantial performance resources. For less critical audio effects, consider deactivating it and rely on regular (equal-power) 3D panning.
 
+- **Stationary Audio Sources:** If an audio source in a scene will remain at the same position, activate the `isStationary` flag to disable position updates each frame for better performance.
 ### Meta Quest 2 Performance
 
-Please note that on the Meta Quest 2, the maximum number of simultaneously
-playing audio sources is approximately 30.
-
-Keep this in mind while designing your audio scenes to ensure an optimal
-auditory experience for your users.
-
-Explore the possibilities of Wonderland Spatial Audio and bring your
-virtual world to life with rich, lifelike soundscapes.
-
-The measurements were obtained from [MIT's Sound Media website](https://sound.media.mit.edu/resources/KEMAR/).
-
-Happy immersive audio designing!
+On Meta Quest 2, the maximum number of simultaneously playing audio sources is approximately 30.

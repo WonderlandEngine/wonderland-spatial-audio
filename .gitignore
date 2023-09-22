@@ -1,4 +1,4 @@
 **/deploy/
 **/.editor/
 **/node_modules/
-**/cache/
+**/cache

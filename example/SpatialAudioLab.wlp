@@ -3,9 +3,9 @@
         "14": {
             "name": "Player",
             "translation": [
-                -2.5,
+                -2.5506727,
                 0.0,
-                1.1575535
+                1.1343675
             ],
             "rotation": [
                 0.0,
@@ -51,10 +51,10 @@
                 1.210719347000122e-7
             ],
             "rotation": [
-                -0.7072495,
+                -0.7071068,
                 0.0,
                 0.0,
-                0.7069639
+                0.7071068
             ],
             "scaling": [
                 20.0,
@@ -86,7 +86,7 @@
                     }
                 },
                 {
-                    "type": "listener"
+                    "type": "wl-listener"
                 }
             ],
             "translation": [
@@ -1579,15 +1579,14 @@
                     "active": true
                 },
                 {
-                    "type": "listener",
-                    "active": true
-                },
-                {
                     "type": "input",
                     "input": {
                         "type": "eye left"
                     },
                     "active": false
+                },
+                {
+                    "type": "wl-listener"
                 }
             ]
         },
@@ -1616,77 +1615,15 @@
                 0.2
             ],
             "translation": [
-                -2.4711937,
-                0.44747,
-                -0.8187841
+                -2.4133553,
+                0.6047587,
+                -0.4638524
             ],
             "rotation": [
                 0.0,
                 0.0,
                 0.0,
                 1.0
-            ]
-        },
-        "241": {
-            "name": "Button1Cone",
-            "parent": "240",
-            "components": [
-                {
-                    "type": "mesh",
-                    "mesh": {
-                        "mesh": "8",
-                        "material": "22"
-                    }
-                },
-                {
-                    "type": "button",
-                    "button": {
-                        "buttonLight": null,
-                        "audioObject": null
-                    },
-                    "active": true
-                },
-                {
-                    "type": "collision",
-                    "collision": {
-                        "collider": "aabb",
-                        "sphere": {
-                            "radius": 0.1
-                        },
-                        "aabb": {
-                            "extents": [
-                                0.1,
-                                0.0299999,
-                                0.1
-                            ]
-                        }
-                    }
-                },
-                {
-                    "type": "ball-spawner",
-                    "ball-spawner": {
-                        "ballCount": 3,
-                        "mesh": "9",
-                        "mat": "249",
-                        "textComp": "315"
-                    }
-                }
-            ],
-            "translation": [
-                -0.0008848,
-                1.325309,
-                -2.3528400561190217e-8
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                -3.347195729475061e-7,
-                1.0
-            ],
-            "scaling": [
-                0.4999988,
-                0.1010006,
-                0.4999766
             ]
         },
         "251": {
@@ -1777,6 +1714,68 @@
                 0.0,
                 0.0,
                 1.0
+            ]
+        },
+        "241": {
+            "name": "Button1Cone",
+            "parent": "240",
+            "components": [
+                {
+                    "type": "mesh",
+                    "mesh": {
+                        "mesh": "8",
+                        "material": "22"
+                    }
+                },
+                {
+                    "type": "button",
+                    "button": {
+                        "buttonLight": null,
+                        "audioObject": null
+                    },
+                    "active": true
+                },
+                {
+                    "type": "collision",
+                    "collision": {
+                        "collider": "aabb",
+                        "sphere": {
+                            "radius": 0.1
+                        },
+                        "aabb": {
+                            "extents": [
+                                0.1,
+                                0.0299999,
+                                0.1
+                            ]
+                        }
+                    }
+                },
+                {
+                    "type": "ball-spawner",
+                    "ball-spawner": {
+                        "ballCount": 30,
+                        "mesh": "9",
+                        "mat": "249",
+                        "textComp": "315"
+                    }
+                }
+            ],
+            "translation": [
+                -0.0008848,
+                1.325309,
+                -2.3528400561190217e-8
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                -3.347195729475061e-7,
+                1.0
+            ],
+            "scaling": [
+                0.4999988,
+                0.1010006,
+                0.4999766
             ]
         }
     },
@@ -2575,8 +2574,8 @@
             "name": "SpatialAudioLab",
             "version": [
                 1,
-                0,
-                4
+                1,
+                0
             ]
         },
         "vr": {
@@ -2585,8 +2584,7 @@
         },
         "scripting": {
             "sourcePaths": [
-                "js/",
-                "../src"
+                "js/"
             ],
             "bundlingType": "esbuild",
             "libraryPaths": [
