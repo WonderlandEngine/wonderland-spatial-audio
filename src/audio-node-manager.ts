@@ -60,9 +60,10 @@ export async function registerNewSource(audioFilePath: string) {
  * @param {number} id - ID of the registered audio file.
  * @param {PannerOptions} settings - Options on how the PannerNode should be configured.
  * @param {boolean} [loop=false] - Whether to loop the audio or not.
+ * @param {GainNode} gain - WebAudio GainNode that will define the maximum volume
  * @returns {Promise<AudioBufferSourceNode>} A promise containing a playable WebAudio AudioNode on success.
  */
-export async function createPlayableNode(id: number, settings: PannerOptions, loop = false) {
+export async function createPlayableNode(id: number, settings: PannerOptions, loop = false, gain: GainNode) {
     if (id >= idList.length) {
         return Promise.reject(
             `Wonderland Audio Manager: createPlayableNode() failed. The given ID "${id}" was not registered!`
@@ -82,11 +83,12 @@ export async function createPlayableNode(id: number, settings: PannerOptions, lo
     audioNodes[id] = audioNode;
     pannerNodes[id] = pannerNode;
 
-    audioNode.connect(pannerNode).connect(_audioContext.destination);
+    audioNode.connect(pannerNode).connect(gain).connect(_audioContext.destination);
     // Make sure to free up WebAudio resources when the audio finishes playing.
     audioNode.addEventListener('ended', () => {
         audioNode.disconnect();
         pannerNode.disconnect();
+        gain.disconnect();
         pannerNodes[id] = undefined;
     });
     return audioNode;

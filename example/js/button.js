@@ -52,11 +52,13 @@ export class ButtonComponent extends Component {
         this.returnPos = this.object.getPositionLocal();
         this.click = this.object.addComponent(AudioSource, {
             audioFile: 'sfx/click.wav',
+            maxVolume: 0.3,
             HRTF: true,
             isStationary: true,
         });
         this.unclick = this.object.addComponent(AudioSource, {
             audioFile: 'sfx/unclick.wav',
+            maxVolume: 0.3,
             HRTF: true,
             isStationary: true,
         });

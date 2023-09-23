@@ -18,6 +18,9 @@ export class AudioSource extends Component {
      */
     static TypeName = 'audio-source';
 
+    @property.float(1.0)
+    maxVolume!: number;
+
     /** Path to the audio file that should be played. */
     @property.string()
     audioFile!: string;
@@ -72,6 +75,7 @@ export class AudioSource extends Component {
 
     private audioID = -1;
     private sourceNode: AudioBufferSourceNode = _audioContext.createBufferSource();
+    private gainNode: GainNode = _audioContext.createGain();
     private isLoaded: Promise<number> | undefined = undefined;
     private _isPlaying = false;
     private pannerOptions: PannerOptions = {};
@@ -86,6 +90,7 @@ export class AudioSource extends Component {
             return;
         }
         this.isLoaded = registerNewSource(this.audioFile);
+        this.gainNode.gain.value = this.maxVolume;
         if (this.autoplay) {
             await this.isLoaded;
             this.play();
@@ -100,7 +105,7 @@ export class AudioSource extends Component {
             if (this.isLoaded === undefined || this._isPlaying) return;
             this.audioID = await this.isLoaded;
             this.updateSettings();
-            this.sourceNode = await createPlayableNode(this.audioID, this.pannerOptions, this.loop);
+            this.sourceNode = await createPlayableNode(this.audioID, this.pannerOptions, this.loop, this.gainNode);
             if (!this.isStationary) {
                 this.update = this._update.bind(this);
             }
