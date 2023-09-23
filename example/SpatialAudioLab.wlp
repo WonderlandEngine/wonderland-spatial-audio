@@ -86,7 +86,7 @@
                     }
                 },
                 {
-                    "type": "wl-listener"
+                    "type": "audio-listener"
                 }
             ],
             "translation": [
@@ -1586,7 +1586,7 @@
                     "active": false
                 },
                 {
-                    "type": "wl-listener"
+                    "type": "audio-listener"
                 }
             ]
         },
