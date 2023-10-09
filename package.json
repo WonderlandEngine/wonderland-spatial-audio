@@ -1,7 +1,7 @@
 {
   "name": "@wonderlandengine/spatial-audio",
   "version": "1.0.0",
-  "description": "Spatial audio component for Wonderland Engine",
+  "description": "Spatial audio components for Wonderland Engine",
   "author": "Wonderland GmbH",
   "license": "MIT",
   "wonderlandengine": {},
@@ -18,7 +18,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run clean && npm run build",
     "pretty": "prettier --config ./prettierrc.json --write \"example/js/*.js\" \"src/**/*.ts\" \"test/**/*.ts\"",
     "clean": "rimraf dist"
   },
@@ -27,17 +27,17 @@
     "url": "git+https://github.com/WonderlandEngine/wonderland-spatial-audio.git"
   },
   "keywords": [
-    "audio"
+    "audio", "webxr", "wonderlandengine"
   ],
   "bugs": {
     "url": "https://github.com/WonderlandEngine/wonderland-spatial-audio/issues"
   },
+  "homepage": "https://github.com/WonderlandEngine/wonderland-spatial-audio#readme",
   "peerDependencies": {
     "@wonderlandengine/api": "^1.0.0",
     "@wonderlandengine/components": "^1.0.6",
     "gl-matrix": "^3.4.3"
   },
-  "homepage": "https://github.com/WonderlandEngine/wonderland-spatial-audio#readme",
   "devDependencies": {
     "prettier": "3.0.0",
     "rimraf": "^5.0.1",
