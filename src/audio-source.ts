@@ -35,7 +35,7 @@ export class AudioSource extends Component {
     /** Enable HRTF (Head-Related Transfer Function) on top of regular 3D panning.
      * @warning this feature is computationally intensive! */
     @property.bool(false)
-    HRTF!: boolean;
+    hrtf!: boolean;
 
     /**
      * Set this property if the object will never move.
@@ -185,7 +185,7 @@ export class AudioSource extends Component {
             maxDistance: this.maxDistance,
             refDistance: this.refDistance,
             rolloffFactor: this.rolloffFactor,
-            panningModel: this.HRTF ? 'HRTF' : 'equalpower',
+            panningModel: this.hrtf ? 'HRTF' : 'equalpower',
             positionX: posVec[0],
             positionY: posVec[2],
             positionZ: -posVec[1],

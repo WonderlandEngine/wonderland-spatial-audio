@@ -87,6 +87,12 @@
                 },
                 {
                     "type": "audio-listener"
+                },
+                {
+                    "type": "wasd-controls",
+                    "wasd-controls": {
+                        "headObject": "233"
+                    }
                 }
             ],
             "translation": [
@@ -676,6 +682,9 @@
                         "eyeLeft": "18",
                         "eyeRight": "19"
                     }
+                },
+                {
+                    "type": "vr-mode-active-switch"
                 }
             ],
             "translation": [
@@ -1473,6 +1482,9 @@
                         "eyeLeft": "18",
                         "eyeRight": "19"
                     }
+                },
+                {
+                    "type": "vr-mode-active-switch"
                 }
             ],
             "translation": [
@@ -1754,7 +1766,7 @@
                 {
                     "type": "ball-spawner",
                     "ball-spawner": {
-                        "ballCount": 30,
+                        "ballCount": 5,
                         "mesh": "9",
                         "mat": "249",
                         "textComp": "315"
