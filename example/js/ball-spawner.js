@@ -40,7 +40,7 @@ export class BallSpawner extends Component {
             const rand = Math.floor(Math.random() * 4) + 1;
             o.addComponent(AudioSource, {
                 audioFile: 'sfx/' + rand + '.wav',
-                HRTF: true,
+                hrtf: true,
             });
 
             o.addComponent(HoveringAnim, {
@@ -65,11 +65,9 @@ export class BallSpawner extends Component {
             const audio = o.getComponent(AudioSource);
             if (audio.isPlaying) {
                 audio.stop();
-                // o.active = false;
             } else {
                 o.setPositionWorld(tempVec);
                 audio.play();
-                // o.active = true;
             }
         }
     }

@@ -17,18 +17,6 @@
                 0.9999998,
                 1.0,
                 0.9999998
-            ],
-            "components": [
-                {
-                    "type": "wasd-controls"
-                },
-                {
-                    "type": "vr-mode-active-switch",
-                    "vr-mode-active-switch": {
-                        "activateComponents": "in non-VR",
-                        "affectChildren": false
-                    }
-                }
             ]
         },
         "15": {
@@ -99,6 +87,12 @@
                 },
                 {
                     "type": "audio-listener"
+                },
+                {
+                    "type": "wasd-controls",
+                    "wasd-controls": {
+                        "headObject": "233"
+                    }
                 }
             ],
             "translation": [
