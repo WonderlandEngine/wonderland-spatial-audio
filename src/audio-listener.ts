@@ -1,7 +1,28 @@
 import { Component } from '@wonderlandengine/api';
-import { _audioContext } from './audio-node-manager.js';
 
+const SAMPLE_RATE = 48000;
 const tempVec: Float32Array = new Float32Array(3);
+export const audioBuffers: { [key: string]: Promise<AudioBuffer> } = {};
+
+/**
+ * Variables
+ */
+let _audioContext: AudioContext = null!;
+if (window.AudioContext !== undefined) {
+    _audioContext = new AudioContext({
+        latencyHint: 'interactive',
+        sampleRate: SAMPLE_RATE,
+    });
+}
+
+export { _audioContext };
+
+export async function getAudioData(file: string) {
+    if (await audioBuffers[file]) return;
+    const response = await fetch(file);
+    const buffer = await response.arrayBuffer();
+    audioBuffers[file] = _audioContext.decodeAudioData(buffer);
+}
 
 /**
  * Represents a Wonderland audio listener component.

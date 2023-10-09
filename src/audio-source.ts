@@ -1,6 +1,6 @@
-import { Component } from '@wonderlandengine/api';
-import { _audioContext, registerNewSource, createPlayableNode, removeSource, updateSourcePosition } from './audio-node-manager.js';
+import {Component, WonderlandEngine} from '@wonderlandengine/api';
 import { property } from '@wonderlandengine/api/decorators.js';
+import {_audioContext, AudioListener, getAudioData, audioBuffers} from "./audio-listener.js";
 
 /**
  * Constants
@@ -17,6 +17,16 @@ export class AudioSource extends Component {
      * The type name for this component.
      */
     static TypeName = 'audio-source';
+
+    static onRegister(engine: WonderlandEngine) {
+        engine.registerComponent(AudioListener);
+    }
+
+    /**
+     * Maximum volume a source can have. From 0 to 1 (0% to 100%).
+     */
+    @property.float(1.0)
+    maxVolume!: number;
 
     /** Path to the audio file that should be played. */
     @property.string()
@@ -70,11 +80,13 @@ export class AudioSource extends Component {
     @property.float(0)
     coneOuterGain!: number;
 
-    private audioID = -1;
-    private sourceNode: AudioBufferSourceNode = _audioContext.createBufferSource();
-    private isLoaded: Promise<number> | undefined = undefined;
+    private pannerNode: PannerNode = new PannerNode(_audioContext);
+    private audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
+    private gainNode: GainNode = new GainNode(_audioContext);
+    private isLoaded: Promise<void> | undefined = undefined;
     private _isPlaying = false;
     private pannerOptions: PannerOptions = {};
+    private time = 0;
 
     /**
      * Initializes the audio source component.
@@ -85,7 +97,11 @@ export class AudioSource extends Component {
             console.warn(`wl-audio-source: No valid filename provided!`);
             return;
         }
-        this.isLoaded = registerNewSource(this.audioFile);
+        this.gainNode = new GainNode(_audioContext, {
+            gain: this.maxVolume
+        });
+        this.gainNode.connect(_audioContext.destination);
+        this.isLoaded = getAudioData(this.audioFile);
         if (this.autoplay) {
             await this.isLoaded;
             this.play();
@@ -98,21 +114,26 @@ export class AudioSource extends Component {
     async play() {
         try {
             if (this.isLoaded === undefined || this._isPlaying) return;
-            this.audioID = await this.isLoaded;
+            await this.isLoaded;
             this.updateSettings();
-            this.sourceNode = await createPlayableNode(this.audioID, this.pannerOptions, this.loop);
-            if (!this.isStationary) {
-                this.update = this._update.bind(this);
-            }
-            this.sourceNode.start();
-
-            this._isPlaying = true;
-
-            this.sourceNode.addEventListener('ended', () => {
-                /* Don't update while the audio is not playing */
+            this.audioNode = new AudioBufferSourceNode(_audioContext, {
+                buffer: await audioBuffers[this.audioFile],
+                loop: this.loop,
+            });
+            this.pannerNode = new PannerNode(_audioContext, this.pannerOptions);
+            this.audioNode.connect(this.pannerNode).connect(this.gainNode);
+            // Make sure to free up WebAudio resources when the audio finishes playing.
+            this.audioNode.addEventListener('ended', () => {
+                this.audioNode.disconnect();
+                this.pannerNode.disconnect();
                 this.update = undefined;
                 this._isPlaying = false;
             });
+            if (!this.isStationary) {
+                this.update = this._update.bind(this);
+            }
+            this.audioNode.start();
+            this._isPlaying = true;
         } catch (e) {
             console.warn(e);
         }
@@ -122,7 +143,7 @@ export class AudioSource extends Component {
      * Stops the audio associated with this audio source.
      */
     stop() {
-        if (this._isPlaying) this.sourceNode.stop();
+        if (this._isPlaying) this.audioNode.stop();
     }
 
     /**
@@ -140,19 +161,17 @@ export class AudioSource extends Component {
         this.stop();
     }
 
-    /**
-     * Called when the component is destroyed.
-     * Stops the audio playback and removes the audio source.
-     */
-    onDestroy() {
-        this.stop();
-        removeSource(this.audioID);
-    }
-
     private _update(dt: number) {
         this.object.getPositionWorld(posVec);
         this.object.getForwardWorld(oriVec);
-        updateSourcePosition(this.audioID, posVec, oriVec, dt);
+
+        this.time = _audioContext.currentTime + dt;
+        this.pannerNode.positionX.linearRampToValueAtTime(posVec[0], this.time);
+        this.pannerNode.positionY.linearRampToValueAtTime(posVec[2], this.time);
+        this.pannerNode.positionZ.linearRampToValueAtTime(-posVec[1], this.time);
+        this.pannerNode.orientationX.linearRampToValueAtTime(oriVec[0], this.time);
+        this.pannerNode.orientationY.linearRampToValueAtTime(oriVec[2], this.time);
+        this.pannerNode.orientationZ.linearRampToValueAtTime(-oriVec[1], this.time);
     }
 
     private updateSettings() {
