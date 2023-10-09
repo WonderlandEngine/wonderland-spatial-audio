@@ -54,11 +54,13 @@ export class ButtonComponent extends Component {
             audioFile: 'sfx/click.wav',
             HRTF: true,
             isStationary: true,
+            maxVolume: 0.5
         });
         this.unclick = this.object.addComponent(AudioSource, {
             audioFile: 'sfx/unclick.wav',
             HRTF: true,
             isStationary: true,
+            maxVolume: 0.5
         });
         this.welcome = WL.scene.addObject(this.object);
         this.welcome.addComponent(AudioSource, {

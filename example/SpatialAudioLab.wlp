@@ -17,6 +17,18 @@
                 0.9999998,
                 1.0,
                 0.9999998
+            ],
+            "components": [
+                {
+                    "type": "wasd-controls"
+                },
+                {
+                    "type": "vr-mode-active-switch",
+                    "vr-mode-active-switch": {
+                        "activateComponents": "in non-VR",
+                        "affectChildren": false
+                    }
+                }
             ]
         },
         "15": {
@@ -676,6 +688,9 @@
                         "eyeLeft": "18",
                         "eyeRight": "19"
                     }
+                },
+                {
+                    "type": "vr-mode-active-switch"
                 }
             ],
             "translation": [
@@ -1473,6 +1488,9 @@
                         "eyeLeft": "18",
                         "eyeRight": "19"
                     }
+                },
+                {
+                    "type": "vr-mode-active-switch"
                 }
             ],
             "translation": [
@@ -1754,7 +1772,7 @@
                 {
                     "type": "ball-spawner",
                     "ball-spawner": {
-                        "ballCount": 30,
+                        "ballCount": 5,
                         "mesh": "9",
                         "mat": "249",
                         "textComp": "315"
