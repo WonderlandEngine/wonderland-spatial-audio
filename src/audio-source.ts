@@ -30,7 +30,7 @@ export class AudioSource extends Component {
 
     /** Path to the audio file that should be played. */
     @property.string()
-    audioFile!: string;
+    src!: string;
 
     /** Enable HRTF (Head-Related Transfer Function) on top of regular 3D panning.
      * @warning this feature is computationally intensive! */
@@ -93,7 +93,7 @@ export class AudioSource extends Component {
      * If `autoplay` is enabled, the audio will start playing if the file is loaded.
      */
     async start() {
-        if (this.audioFile === '') {
+        if (this.src === '') {
             console.warn(`wl-audio-source: No valid filename provided!`);
             return;
         }
@@ -101,7 +101,7 @@ export class AudioSource extends Component {
             gain: this.maxVolume
         });
         this.gainNode.connect(_audioContext.destination);
-        this.isLoaded = getAudioData(this.audioFile);
+        this.isLoaded = getAudioData(this.src);
         if (this.autoplay) {
             await this.isLoaded;
             this.play();
@@ -117,7 +117,7 @@ export class AudioSource extends Component {
             await this.isLoaded;
             this.updateSettings();
             this.audioNode = new AudioBufferSourceNode(_audioContext, {
-                buffer: await audioBuffers[this.audioFile],
+                buffer: await audioBuffers[this.src],
                 loop: this.loop,
             });
             this.pannerNode = new PannerNode(_audioContext, this.pannerOptions);

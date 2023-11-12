@@ -1,4 +1,4 @@
-import {Component, MeshComponent, Property, Emitter} from '@wonderlandengine/api';
+import {Component, Property} from '@wonderlandengine/api';
 import {CursorTarget} from '@wonderlandengine/components';
 import {AudioSource} from '@wonderlandengine/spatial-audio';
 
@@ -51,20 +51,20 @@ export class ButtonComponent extends Component {
         target.onUp.add(this.onUp.bind(this));
         this.returnPos = this.object.getPositionLocal();
         this.click = this.object.addComponent(AudioSource, {
-            audioFile: 'sfx/click.wav',
+            src: 'sfx/click.wav',
             hrtf: true,
             isStationary: true,
             maxVolume: 0.5
         });
         this.unclick = this.object.addComponent(AudioSource, {
-            audioFile: 'sfx/unclick.wav',
+            src: 'sfx/unclick.wav',
             hrtf: true,
             isStationary: true,
             maxVolume: 0.5
         });
         this.welcome = WL.scene.addObject(this.object);
         this.welcome.addComponent(AudioSource, {
-            audioFile: 'sfx/welcome.wav',
+            src: 'sfx/welcome.wav',
             hrtf: true,
             autoplay: true,
             isStationary: true,
