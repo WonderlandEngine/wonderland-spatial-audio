@@ -52,20 +52,20 @@ export class ButtonComponent extends Component {
         this.returnPos = this.object.getPositionLocal();
         this.click = this.object.addComponent(AudioSource, {
             audioFile: 'sfx/click.wav',
-            hrtf: true,
+            spatial: true,
             isStationary: true,
-            maxVolume: 0.5
+            maxVolume: 0.5,
         });
         this.unclick = this.object.addComponent(AudioSource, {
             audioFile: 'sfx/unclick.wav',
-            hrtf: true,
+            spatial: true,
             isStationary: true,
-            maxVolume: 0.5
+            maxVolume: 0.5,
         });
         this.welcome = WL.scene.addObject(this.object);
         this.welcome.addComponent(AudioSource, {
             audioFile: 'sfx/welcome.wav',
-            hrtf: true,
+            spatial: true,
             autoplay: true,
             isStationary: true,
         });

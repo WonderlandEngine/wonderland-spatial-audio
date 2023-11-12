@@ -40,7 +40,7 @@ export class BallSpawner extends Component {
             const rand = Math.floor(Math.random() * 4) + 1;
             o.addComponent(AudioSource, {
                 audioFile: 'sfx/' + rand + '.wav',
-                hrtf: true,
+                spatial: true,
             });
 
             o.addComponent(HoveringAnim, {

@@ -1,6 +1,11 @@
 import {Component, WonderlandEngine} from '@wonderlandengine/api';
-import { property } from '@wonderlandengine/api/decorators.js';
-import {_audioContext, AudioListener, getAudioData, audioBuffers} from "./audio-listener.js";
+import {property} from '@wonderlandengine/api/decorators.js';
+import {
+    _audioContext,
+    AudioListener,
+    getAudioData,
+    audioBuffers,
+} from './audio-listener.js';
 
 /**
  * Constants
@@ -32,18 +37,6 @@ export class AudioSource extends Component {
     @property.string()
     audioFile!: string;
 
-    /** Enable HRTF (Head-Related Transfer Function) on top of regular 3D panning.
-     * @warning this feature is computationally intensive! */
-    @property.bool(false)
-    hrtf!: boolean;
-
-    /**
-     * Set this property if the object will never move.
-     * Disabling position updates each frame saves CPU time.
-     */
-    @property.bool(false)
-    isStationary!: boolean;
-
     /** Whether to loop the sound. */
     @property.bool(false)
     loop!: boolean;
@@ -51,6 +44,20 @@ export class AudioSource extends Component {
     /** Whether to autoplay the sound. */
     @property.bool(false)
     autoplay!: boolean;
+
+    /** Select the panning method.
+     *
+     * @warning Enabling HRTF (Head-Related Transfer Function) is computationally more intensive than regular panning!
+     */
+    @property.enum(['none', 'panning', 'hrtf'], 2)
+    spatial!: number;
+
+    /**
+     * Set this property if the object will never move.
+     * Disabling position updates each frame saves CPU time.
+     */
+    @property.bool(false)
+    isStationary!: boolean;
 
     /** The distance model used for spatial audio. */
     @property.enum(['linear', 'inverse', 'exponential'], 'exponential')
@@ -87,6 +94,7 @@ export class AudioSource extends Component {
     private _isPlaying = false;
     private pannerOptions: PannerOptions = {};
     private time = 0;
+    private hrtf: boolean = true;
 
     /**
      * Initializes the audio source component.
@@ -98,20 +106,28 @@ export class AudioSource extends Component {
             return;
         }
         this.gainNode = new GainNode(_audioContext, {
-            gain: this.maxVolume
+            gain: this.maxVolume,
         });
         this.gainNode.connect(_audioContext.destination);
         this.isLoaded = getAudioData(this.audioFile);
+        switch (this.spatial) {
+            case 0:
+                this.play = this.playNonPanned;
+                break;
+            case 1:
+                this.play = this.playPanned;
+                this.hrtf = false;
+                break;
+            default:
+                this.play = this.playPanned;
+        }
         if (this.autoplay) {
             await this.isLoaded;
             this.play();
         }
     }
 
-    /**
-     * Plays the audio associated with this audio source.
-     */
-    async play() {
+    private async playPanned() {
         try {
             if (this.isLoaded === undefined || this._isPlaying) return;
             await this.isLoaded;
@@ -138,6 +154,32 @@ export class AudioSource extends Component {
             console.warn(e);
         }
     }
+
+    private async playNonPanned() {
+        try {
+            if (this.isLoaded === undefined || this._isPlaying) return;
+            await this.isLoaded;
+            this.audioNode = new AudioBufferSourceNode(_audioContext, {
+                buffer: await audioBuffers[this.audioFile],
+                loop: this.loop,
+            });
+            this.audioNode.connect(this.gainNode);
+            this.audioNode.addEventListener('ended', () => {
+                this._isPlaying = false;
+            });
+            this.audioNode.start();
+            this._isPlaying = true;
+        } catch (e) {
+            console.warn(e);
+        }
+    }
+
+    /**
+     * Plays the audio associated with this audio source.
+     *
+     * @note This function gets the implementation assigned in the `start()` method, depending on panning preferences.
+     */
+    async play() {}
 
     /**
      * Stops the audio associated with this audio source.
@@ -202,4 +244,3 @@ export class AudioSource extends Component {
         return 'exponential';
     }
 }
-
