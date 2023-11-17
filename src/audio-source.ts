@@ -35,7 +35,7 @@ export class AudioSource extends Component {
 
     /** Path to the audio file that should be played. */
     @property.string()
-    audioFile!: string;
+    src!: string;
 
     /** Whether to loop the sound. */
     @property.bool(false)
@@ -101,7 +101,7 @@ export class AudioSource extends Component {
      * If `autoplay` is enabled, the audio will start playing if the file is loaded.
      */
     async start() {
-        if (this.audioFile === '') {
+        if (this.src === '') {
             console.warn(`wl-audio-source: No valid filename provided!`);
             return;
         }
@@ -109,9 +109,10 @@ export class AudioSource extends Component {
             gain: this.maxVolume,
         });
         this.gainNode.connect(_audioContext.destination);
-        this.isLoaded = getAudioData(this.audioFile);
+        this.isLoaded = getAudioData(this.src);
         /* "+0" is necessary here to allow backwards compatability with howler,
          * where spatial was either true or false */
+        // @ts-ignore
         switch (this.spatial + 0) {
             case 0:
                 this.play = this.playNonPanned;
@@ -141,7 +142,7 @@ export class AudioSource extends Component {
             await this.isLoaded;
             this.updateSettings();
             this.audioNode = new AudioBufferSourceNode(_audioContext, {
-                buffer: await audioBuffers[this.audioFile],
+                buffer: await audioBuffers[this.src],
                 loop: this.loop,
             });
             this.pannerNode = new PannerNode(_audioContext, this.pannerOptions);
@@ -168,7 +169,7 @@ export class AudioSource extends Component {
             if (this.isLoaded === undefined || this._isPlaying) return;
             await this.isLoaded;
             this.audioNode = new AudioBufferSourceNode(_audioContext, {
-                buffer: await audioBuffers[this.audioFile],
+                buffer: await audioBuffers[this.src],
                 loop: this.loop,
             });
             this.audioNode.connect(this.gainNode);

@@ -39,7 +39,7 @@ export class BallSpawner extends Component {
             o.setScalingWorld([0.5, 0.5, 0.5]);
             const rand = Math.floor(Math.random() * 4) + 1;
             o.addComponent(AudioSource, {
-                audioFile: 'sfx/' + rand + '.wav',
+                src: 'sfx/' + rand + '.wav',
                 spatial: true,
             });
 
