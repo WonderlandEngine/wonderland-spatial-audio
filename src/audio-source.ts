@@ -110,7 +110,9 @@ export class AudioSource extends Component {
         });
         this.gainNode.connect(_audioContext.destination);
         this.isLoaded = getAudioData(this.audioFile);
-        switch (this.spatial) {
+        /* "+0" is necessary here to allow backwards compatability with howler,
+         * where spatial was either true or false */
+        switch (this.spatial + 0) {
             case 0:
                 this.play = this.playNonPanned;
                 break;
@@ -123,6 +125,12 @@ export class AudioSource extends Component {
         }
         if (this.autoplay) {
             await this.isLoaded;
+            await _audioContext.resume();
+            if (_audioContext.state !== 'running') {
+                console.warn(
+                    'wl-audio-source: Autoplay was prevented because of missing user interaction'
+                );
+            }
             this.play();
         }
     }

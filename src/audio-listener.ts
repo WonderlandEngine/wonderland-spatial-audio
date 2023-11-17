@@ -14,7 +14,6 @@ if (window.AudioContext !== undefined) {
         latencyHint: 'interactive',
         sampleRate: SAMPLE_RATE,
     });
-    // @todo: Simulate click here to enable AudioContext. Otherwise it will be blocked until user input
 }
 
 export {_audioContext};
