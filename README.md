@@ -11,6 +11,8 @@ orientations in the [WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/
 
 ## Usage Guide
 
+Instructions on how to set up and use Wonderland Spatial Audio:
+
 ### Installation
 
 Install the components in your project:
@@ -27,7 +29,7 @@ be available to attach to objects.
 1. For VR audio: attach an `audio-listener` component to the `Player > Head` object.
    This controls position and orientation of the receiver. Updates occur each frame.
 
-2. For desktop audio: attach the `audio-listener` component to the `NonVrCamera`.
+2. For PC/mobile audio: attach the `audio-listener` component to the `NonVrCamera`.
    Only one listener component should be active at any given time. To achieve this, use
    the `vr-mode-active-switch` component.
 
@@ -36,7 +38,7 @@ be available to attach to objects.
 Add an `audio-source` component to objects that should play sound. Set the `src`
 property to a URL in the `static` folder of your project.
 (E.g., for `static/sfx/sound.mp3` enter `sfx/sound.mp3`).
-If `spatial` is set to `none`, all settings below that are ignored.
+If `spatial` is set to `none`, all settings below are ignored.
 
 ## Considerations
 
