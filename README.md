@@ -33,9 +33,10 @@ be available to attach to objects.
 
 ### Audio Sources
 
-Add an `audio-source` component to objects that should play sound. Set the `audioFile`
+Add an `audio-source` component to objects that should play sound. Set the `src`
 property to a URL in the `static` folder of your project.
 (E.g., for `static/sfx/sound.mp3` enter `sfx/sound.mp3`).
+If `spatial` is set to `none`, all settings below that are ignored.
 
 ## Considerations
 

@@ -1,9 +1,9 @@
-import { Component } from '@wonderlandengine/api';
+import {Component} from '@wonderlandengine/api';
 
 const SAMPLE_RATE = 48000;
 const tempVec: Float32Array = new Float32Array(3);
 const tempVec2: Float32Array = new Float32Array(3);
-export const audioBuffers: { [key: string]: Promise<AudioBuffer> } = {};
+export const audioBuffers: {[key: string]: Promise<AudioBuffer>} = {};
 
 /**
  * Variables
@@ -16,7 +16,7 @@ if (window.AudioContext !== undefined) {
     });
 }
 
-export { _audioContext };
+export {_audioContext};
 
 export async function getAudioData(file: string) {
     if (await audioBuffers[file]) return;
@@ -47,11 +47,10 @@ export class AudioListener extends Component {
 
     start() {
         /* Check if recommended functions are supported */
-        if('positionX' in this.listener) {
+        if ('positionX' in this.listener) {
             /* supported */
             this.update = this._updateRecommended.bind(this);
-        }
-        else {
+        } else {
             /* unsupported */
             this.update = this._updateDeprecated.bind(this);
         }
@@ -65,7 +64,14 @@ export class AudioListener extends Component {
         /* Set the orientation of the listener */
         this.object.getForwardWorld(tempVec);
         this.object.getUpWorld(tempVec2);
-        this.listener.setOrientation(tempVec[0], tempVec[2], -tempVec[1], tempVec2[0], tempVec2[2], -tempVec2[1]);
+        this.listener.setOrientation(
+            tempVec[0],
+            tempVec[2],
+            -tempVec[1],
+            tempVec2[0],
+            tempVec2[2],
+            -tempVec2[1]
+        );
     }
     _updateRecommended(dt: number) {
         this.time = _audioContext.currentTime + dt;
