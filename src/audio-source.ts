@@ -125,14 +125,14 @@ export class AudioSource extends Component {
                 this.play = this.playPanned;
         }
         if (this.autoplay) {
-            await this.isLoaded;
-            await _audioContext.resume();
-            if (_audioContext.state !== 'running') {
-                console.warn(
-                    'wl-audio-source: Autoplay was prevented because of missing user interaction'
-                );
-            }
-            this.play();
+            const playAfterUserGesture = async () => {
+                await this.isLoaded;
+                this.play();
+                window.removeEventListener('click', playAfterUserGesture);
+                window.removeEventListener('touchstart', playAfterUserGesture);
+            };
+            window.addEventListener('click', playAfterUserGesture);
+            window.addEventListener('touchstart', playAfterUserGesture);
         }
     }
 
