@@ -25,14 +25,14 @@ export async function getAudioData(file: string) {
         const response = await fetch(file);
 
         if (!response.ok) {
-            console.error(`wl-listener: Failed to fetch audio data from ${file}`)
+            console.error(`audio-listener: Failed to fetch audio data from ${file}`)
             return
         }
 
         const buffer = await response.arrayBuffer();
         audioBuffers[file] = _audioContext.decodeAudioData(buffer);
     } catch (error) {
-        console.error(`wl-listener: Error in getAudioData for file ${file}`);
+        console.error(`audio-listener: Error in getAudioData for file ${file}`);
         return
     }
 }

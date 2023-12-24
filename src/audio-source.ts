@@ -102,7 +102,7 @@ export class AudioSource extends Component {
      */
     async start() {
         if (this.src === '') {
-            console.warn(`wl-audio-source: No valid filename provided!`);
+            console.warn(`audio-source: No valid filename provided!`);
             return;
         }
         this.gainNode = new GainNode(_audioContext, {
