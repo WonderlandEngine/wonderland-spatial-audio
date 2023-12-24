@@ -130,9 +130,13 @@ export class AudioSource extends Component {
                 this.play();
                 window.removeEventListener('click', playAfterUserGesture);
                 window.removeEventListener('touchstart', playAfterUserGesture);
+                window.removeEventListener('touchend', playAfterUserGesture);
+                window.removeEventListener('keydown', playAfterUserGesture);
             };
             window.addEventListener('click', playAfterUserGesture);
             window.addEventListener('touchstart', playAfterUserGesture);
+            window.addEventListener('touchend', playAfterUserGesture);
+            window.addEventListener('keydown', playAfterUserGesture);
         }
     }
 
