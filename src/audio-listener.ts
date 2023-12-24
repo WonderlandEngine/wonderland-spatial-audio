@@ -1,6 +1,8 @@
 import {Component} from '@wonderlandengine/api';
 
 const SAMPLE_RATE = 48000;
+/* 5ms for now, so it definitely takes less than one frame */
+const FADE_DURATION = 5 / 1000;
 const tempVec: Float32Array = new Float32Array(3);
 const tempVec2: Float32Array = new Float32Array(3);
 export const audioBuffers: {[key: string]: Promise<AudioBuffer>} = {};
@@ -73,8 +75,8 @@ export class AudioListener extends Component {
             -tempVec2[1]
         );
     }
-    _updateRecommended(dt: number) {
-        this.time = _audioContext.currentTime + dt;
+    _updateRecommended() {
+        this.time = _audioContext.currentTime + FADE_DURATION;
         /* Set the position of the listener */
         this.object.getPositionWorld(tempVec);
         this.listener.positionX.linearRampToValueAtTime(tempVec[0], this.time);
