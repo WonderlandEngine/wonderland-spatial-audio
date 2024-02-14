@@ -126,12 +126,12 @@ export class AudioSource extends Component {
         }
         if (this.autoplay) {
             const playAfterUserGesture = async () => {
-                await this.isLoaded;
-                this.play();
                 window.removeEventListener('click', playAfterUserGesture);
                 window.removeEventListener('touchstart', playAfterUserGesture);
                 window.removeEventListener('touchend', playAfterUserGesture);
                 window.removeEventListener('keydown', playAfterUserGesture);
+                await this.isLoaded;
+                this.play();
             };
             window.addEventListener('click', playAfterUserGesture);
             window.addEventListener('touchstart', playAfterUserGesture);
@@ -161,6 +161,9 @@ export class AudioSource extends Component {
             if (!this.isStationary) {
                 this.update = this._update.bind(this);
             }
+            if (_audioContext.state === 'suspended') {
+                await _audioContext.resume();
+            }
             this.audioNode.start();
             this._isPlaying = true;
         } catch (e) {
@@ -180,6 +183,9 @@ export class AudioSource extends Component {
             this.audioNode.addEventListener('ended', () => {
                 this._isPlaying = false;
             });
+            if (_audioContext.state === 'suspended') {
+                await _audioContext.resume();
+            }
             this.audioNode.start();
             this._isPlaying = true;
         } catch (e) {
