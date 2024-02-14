@@ -142,7 +142,10 @@ export class AudioSource extends Component {
 
     private async playPanned() {
         try {
-            if (this.isLoaded === undefined || this._isPlaying) return;
+            if (this.isLoaded === undefined) return;
+            if (this.isPlaying) {
+                this.stop();
+            }
             await this.isLoaded;
             this.updateSettings();
             this.audioNode = new AudioBufferSourceNode(_audioContext, {
@@ -151,13 +154,7 @@ export class AudioSource extends Component {
             });
             this.pannerNode = new PannerNode(_audioContext, this.pannerOptions);
             this.audioNode.connect(this.pannerNode).connect(this.gainNode);
-            // Make sure to free up WebAudio resources when the audio finishes playing.
-            this.audioNode.addEventListener('ended', () => {
-                this.audioNode.disconnect();
-                this.pannerNode.disconnect();
-                this.update = undefined;
-                this._isPlaying = false;
-            });
+            this.audioNode.addEventListener('ended', this.stop);
             if (!this.isStationary) {
                 this.update = this._update.bind(this);
             }
@@ -173,16 +170,17 @@ export class AudioSource extends Component {
 
     private async playNonPanned() {
         try {
-            if (this.isLoaded === undefined || this._isPlaying) return;
+            if (this.isLoaded === undefined) return;
+            if (this.isPlaying) {
+                this.stop();
+            }
             await this.isLoaded;
             this.audioNode = new AudioBufferSourceNode(_audioContext, {
                 buffer: await audioBuffers[this.src],
                 loop: this.loop,
             });
             this.audioNode.connect(this.gainNode);
-            this.audioNode.addEventListener('ended', () => {
-                this._isPlaying = false;
-            });
+            this.audioNode.addEventListener('ended', this.stop);
             if (_audioContext.state === 'suspended') {
                 await _audioContext.resume();
             }
@@ -204,7 +202,17 @@ export class AudioSource extends Component {
      * Stops the audio associated with this audio source.
      */
     stop() {
-        if (this._isPlaying) this.audioNode.stop();
+        if (this.isPlaying) {
+            this.audioNode.removeEventListener('ended', this.stop);
+            this.audioNode.stop();
+        }
+        if (this.audioNode !== undefined) {
+            // Make sure to free up WebAudio resources when the audio finishes playing.
+            this.audioNode.disconnect();
+            this.pannerNode.disconnect();
+        }
+        this.update = undefined;
+        this._isPlaying = false;
     }
 
     /**
