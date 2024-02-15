@@ -49,7 +49,7 @@ export class AudioSource extends Component {
      *
      * @warning Enabling HRTF (Head-Related Transfer Function) is computationally more intensive than regular panning!
      */
-    @property.enum(['none', 'panning', 'hrtf'], 2)
+    @property.enum(['none', 'hrtf', 'panning'], 1)
     spatial!: number;
 
     /**
@@ -117,7 +117,7 @@ export class AudioSource extends Component {
             case 0:
                 this.play = this.playNonPanned;
                 break;
-            case 1:
+            case 2:
                 this.play = this.playPanned;
                 this.hrtf = false;
                 break;
