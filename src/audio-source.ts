@@ -125,18 +125,17 @@ export class AudioSource extends Component {
                 this.play = this.playPanned;
         }
         if (this.autoplay) {
-            const playAfterUserGesture = async () => {
+            const playAfterUserGesture = () => {
                 window.removeEventListener('click', playAfterUserGesture);
-                window.removeEventListener('touchstart', playAfterUserGesture);
-                window.removeEventListener('touchend', playAfterUserGesture);
+                window.removeEventListener('touch', playAfterUserGesture);
                 window.removeEventListener('keydown', playAfterUserGesture);
-                await this.isLoaded;
+                window.removeEventListener('mousedown', playAfterUserGesture);
                 this.play();
             };
             window.addEventListener('click', playAfterUserGesture);
-            window.addEventListener('touchstart', playAfterUserGesture);
-            window.addEventListener('touchend', playAfterUserGesture);
+            window.addEventListener('touch', playAfterUserGesture);
             window.addEventListener('keydown', playAfterUserGesture);
+            window.addEventListener('mousedown', playAfterUserGesture);
         }
     }
 
