@@ -43,6 +43,46 @@ property to a URL in the `static` folder of your project.
 (E.g., for `static/sfx/sound.mp3` enter `sfx/sound.mp3`).
 If `spatial` is set to `none`, all settings below are ignored.
 
+### AudioManager
+
+1. Instantiate a playable audio node by invoking the `load()` method of the `AudioManager` class. This method returns a promise that resolves to an audio node upon successful loading of the audio resource.
+
+2. The `play()` method initiates the playback of the audio node. For spatialized audio playback, supply the `play()` method with a position argument in the form `play(pos)`.
+
+3. Each audio node instance exposes several properties for advanced configuration:
+
+```js
+/* The 'volume' property controls the amplitude of the audio output. 
+ * It accepts a float value between 0.0 (silence) and 1.0 (maximum volume). */
+this.audio.volume = 0.5;
+
+/* The 'HRTF' property, when set to true, enables full HRTF (Head-Related Transfer Function) spatialization,
+ * as opposed to standard panning. */
+this.audio.HRTF = true;
+
+/* The 'loop' property, when set to true, causes the audio to repeat indefinitely. */
+this.audio.loop = true;
+```
+
+4. The `destroy()` method deallocates the resources associated with the audio node, effectively removing it from memory.
+
+Here is an example of how to use the `AudioManager` class:
+
+```js
+// Load your audio on start(), so it is ready when you need it.
+start() {
+    this.audio = await AudioManager.load('path_to_audiofile');
+}
+
+// Play the file when you need it.
+onClick() {
+    this.audio.play();
+}
+
+// Free up the resources, if audio is not needed anymore.
+this.audio.destroy();
+```
+
 ## Considerations
 
 ### Best Practices
@@ -51,7 +91,7 @@ If `spatial` is set to `none`, all settings below are ignored.
   For less critical audio effects, consider deactivating it and rely on regular
   (equal-power) 3D panning.
 
-- **Stationary Audio Sources:** If an audio source in a scene will remain at the same
+- **Stationary Audio Sources:** If an `audio-source` in a scene will remain at the same
   position, activate the `isStationary` flag to disable position updates each frame for
   better performance.
 
