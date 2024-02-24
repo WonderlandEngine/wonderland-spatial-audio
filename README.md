@@ -70,8 +70,11 @@ Here is an example of how to use the `AudioManager` class:
 
 ```js
 // Load your audio on start(), so it is ready when you need it.
-start() {
-    this.audio = await AudioManager.load('path_to_audiofile');
+async start() {
+    this.audio = AudioManager.load('path_to_audiofile')
+        .then((playableNode) => {
+            return playableNode;
+        });
 }
 
 // Play the file when you need it.

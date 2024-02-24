@@ -1,11 +1,23 @@
 import {_audioContext} from './audio-listener.js';
 
-const preloadedBuffers: {[key: string]: [Promise<AudioBuffer>, number]} = {};
+const _bufferCache: Map<string, [AudioBuffer, number]> = new Map();
+
+function _remove(source: string) {
+    if (_bufferCache.has(source)) {
+        const [, referenceCount] = _bufferCache.get(source)!;
+        if (referenceCount > 1) {
+            const [audioBuffer, referenceCount] = _bufferCache.get(source)!;
+            _bufferCache.set(source, [audioBuffer, referenceCount - 1]);
+        } else {
+            _bufferCache.delete(source);
+        }
+    }
+}
 
 /** AudioManager loads and manages audiofiles from which PlayableNodes are created
  * @example
  * ```
- * start() {
+ * async start() {
  *      this.audio = await AudioManager.load('click.wav');
  * }
  * onPress() {
@@ -16,60 +28,28 @@ const preloadedBuffers: {[key: string]: [Promise<AudioBuffer>, number]} = {};
  * ```
  */
 export const AudioManager = {
-    /**
-     * Asynchronously loads an audio file and returns a Promise that resolves with a PlayableNode.
-     *
-     * @note Make sure to load files on `start()`, so that Nodes are ready when they are needed.
-     *
-     * @param file - The path or URL of the audio file to be loaded.
-     * @returns A Promise that resolves with a PlayableNode representing the loaded audio.
-     * @throws If there is an error during the loading process, a rejection with an error message is returned.
-     */
-    async load(file: string): Promise<PlayableNode> {
+    async load(source: string): Promise<PlayableNode> {
+        if (_bufferCache.has(source)) {
+            const [audioBuffer, referenceCount] = _bufferCache.get(source)!;
+            _bufferCache.set(source, [audioBuffer, referenceCount + 1]);
+            return new PlayableNode(source, audioBuffer);
+        }
+
         try {
-            /* Return when a instance of this file already is being loaded */
-            const [bufferPromise, referenceCount] = preloadedBuffers[file] || [
-                undefined,
-                0,
-            ];
-            if (bufferPromise !== undefined) {
-                preloadedBuffers[file][1] += 1;
-                return bufferPromise.then(() => new PlayableNode(file));
-            }
-            const response = await fetch(file);
+            const response = await fetch(source);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await _audioContext.decodeAudioData(arrayBuffer);
 
-            if (!response.ok) {
-                return Promise.reject(`Failed to fetch audio data from ${file}`);
-            }
-
-            /* Create promise that resolves once decoding is complete */
-            const decodingPromise = new Promise<AudioBuffer>((resolve, reject) => {
-                response
-                    .arrayBuffer()
-                    .then((buffer) => _audioContext.decodeAudioData(buffer))
-                    .then((decodedBuffer) => resolve(decodedBuffer))
-                    .catch((error) => reject(error));
-            });
-
-            preloadedBuffers[file] = [decodingPromise, 1];
-
-            /* Return a promise that resolves with a PlayableNode when decoding is complete */
-            return decodingPromise.then(() => new PlayableNode(file));
+            _bufferCache.set(source, [audioBuffer, 1]);
+            return new PlayableNode(source, audioBuffer);
         } catch (error) {
-            return Promise.reject(`audio-manager: Error in load() for file ${file}`);
+            throw error;
         }
     },
 };
 
-async function remove(file: string) {
-    const [bufferPromise, referenceCount] = preloadedBuffers[file] || [undefined, 0];
-    if (await bufferPromise) {
-        if (referenceCount <= 1) delete preloadedBuffers[file];
-        else preloadedBuffers[file][1] -= 1;
-    }
-}
-
-async function unlockAudioContext(): Promise<void> {
+/* AudioContext only unlocks on user interaction, so we wait until the user interacted and the resume */
+async function _unlockAudioContext(): Promise<void> {
     return new Promise<void>((resolve) => {
         const unlockHandler = () => {
             _audioContext.resume().then(() => {
@@ -95,22 +75,24 @@ async function unlockAudioContext(): Promise<void> {
  * clogging up memory
  */
 class PlayableNode {
-    private source: string;
-    private _isPlaying: boolean = false;
-    private gainNode: GainNode = new GainNode(_audioContext);
-    private pannerNode: PannerNode | undefined;
-    private audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
-    private _destroy: boolean = false;
-
     /** Whether to loop the audio */
     public loop: boolean = false;
 
     /** Whether to enable HRTF over regular panning */
     public HRTF: boolean = false;
 
-    constructor(src: string) {
-        this.source = src;
-        this.gainNode.connect(_audioContext.destination);
+    private _audioBuffer: AudioBuffer;
+    private _source: string;
+    private _isPlaying: boolean = false;
+    private _gainNode: GainNode = new GainNode(_audioContext);
+    private _pannerNode: PannerNode | undefined;
+    private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
+    private _destroy: boolean = false;
+
+    constructor(src: string, audioBuffer: AudioBuffer) {
+        this._audioBuffer = audioBuffer;
+        this._source = src;
+        this._gainNode.connect(_audioContext.destination);
     }
 
     /**
@@ -129,14 +111,14 @@ class PlayableNode {
                 this.stop();
             }
             if (_audioContext.state === 'suspended') {
-                await unlockAudioContext();
+                await _unlockAudioContext();
             }
-            this.audioNode = new AudioBufferSourceNode(_audioContext, {
-                buffer: await preloadedBuffers[this.source][0],
+            this._audioNode = new AudioBufferSourceNode(_audioContext, {
+                buffer: this._audioBuffer,
                 loop: this.loop,
             });
             if (posVec !== undefined) {
-                this.pannerNode = new PannerNode(_audioContext, {
+                this._pannerNode = new PannerNode(_audioContext, {
                     coneInnerAngle: 360,
                     coneOuterAngle: 0,
                     coneOuterGain: 0,
@@ -152,12 +134,12 @@ class PlayableNode {
                     orientationY: 0,
                     orientationZ: 1,
                 });
-                this.audioNode.connect(this.pannerNode).connect(this.gainNode);
+                this._audioNode.connect(this._pannerNode).connect(this._gainNode);
             } else {
-                this.audioNode.connect(this.gainNode);
+                this._audioNode.connect(this._gainNode);
             }
-            this.audioNode.addEventListener('ended', this.stop);
-            this.audioNode.start();
+            this._audioNode.addEventListener('ended', this.stop);
+            this._audioNode.start();
             this._isPlaying = true;
         } catch (e) {
             console.warn(e);
@@ -169,19 +151,19 @@ class PlayableNode {
      */
     stop() {
         if (this.isPlaying) {
-            this.audioNode.removeEventListener('ended', this.stop);
-            this.audioNode.stop();
+            this._audioNode.removeEventListener('ended', this.stop);
+            this._audioNode.stop();
         }
-        if (this.audioNode !== undefined) {
-            this.audioNode.disconnect();
+        if (this._audioNode !== undefined) {
+            this._audioNode.disconnect();
         }
-        if (this.pannerNode !== undefined) {
-            this.pannerNode.disconnect();
+        if (this._pannerNode !== undefined) {
+            this._pannerNode.disconnect();
         }
         this._isPlaying = false;
         if (this._destroy) {
-            remove(this.source);
-            this.gainNode.disconnect();
+            _remove(this._source);
+            this._gainNode.disconnect();
         }
     }
 
@@ -196,7 +178,7 @@ class PlayableNode {
      * Sets the volume of this PlayableNode
      */
     set volume(v: number) {
-        this.gainNode.gain.value = v;
+        this._gainNode.gain.value = v;
     }
 
     /**
@@ -210,17 +192,17 @@ class PlayableNode {
      * ```
      */
     destroy() {
-        if (this.isPlaying) {
+        if (this._isPlaying) {
             this._destroy = true;
         } else {
-            remove(this.source);
-            this.gainNode.disconnect();
+            _remove(this._source);
+            this._gainNode.disconnect();
         }
 
         /* Remove ability to re-trigger the sound */
-        this.play = this.removePlay.bind(this);
+        this.play = this._removePlay.bind(this);
         this.destroy = () => {};
     }
 
-    private async removePlay(): Promise<void> {}
+    private async _removePlay(): Promise<void> {}
 }
