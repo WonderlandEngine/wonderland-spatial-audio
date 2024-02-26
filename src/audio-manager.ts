@@ -67,30 +67,32 @@ export class AudioManager {
             this._bufferCache.delete(source);
         }
     }
-}
 
-/**
- * Returns a promise that fulfills when the audioContext resumes.
- *
- * @note WebAudio AudioContext only resumes on user interaction.
- */
-async function _unlockAudioContext(): Promise<void> {
-    return new Promise<void>((resolve) => {
-        const unlockHandler = () => {
-            _audioContext.resume().then(() => {
-                window.removeEventListener('click', unlockHandler);
-                window.removeEventListener('touch', unlockHandler);
-                window.removeEventListener('keydown', unlockHandler);
-                window.removeEventListener('mousedown', unlockHandler);
-                resolve();
-            });
-        };
+    /**
+     * Unlocks the WebAudio AudioContext.
+     *
+     * @returns a promise that fulfills when the audioContext resumes.
+     * @note WebAudio AudioContext only resumes on user interaction.
+     * @warning This is for internal use only, use at own risk!
+     */
+    async _unlockAudioContext(): Promise<void> {
+        return new Promise<void>((resolve) => {
+            const unlockHandler = () => {
+                _audioContext.resume().then(() => {
+                    window.removeEventListener('click', unlockHandler);
+                    window.removeEventListener('touch', unlockHandler);
+                    window.removeEventListener('keydown', unlockHandler);
+                    window.removeEventListener('mousedown', unlockHandler);
+                    resolve();
+                });
+            };
 
-        window.addEventListener('click', unlockHandler);
-        window.addEventListener('touch', unlockHandler);
-        window.addEventListener('keydown', unlockHandler);
-        window.addEventListener('mousedown', unlockHandler);
-    });
+            window.addEventListener('click', unlockHandler);
+            window.addEventListener('touch', unlockHandler);
+            window.addEventListener('keydown', unlockHandler);
+            window.addEventListener('mousedown', unlockHandler);
+        });
+    }
 }
 
 /**
@@ -121,7 +123,7 @@ class PlayableNode {
      * @warning This is for internal use only. PlayableNode's should only be created via the AudioManager's `load()`
      * function.
      * @param src Path to the audio file.
-     * @param audioBuffer Buffer of the decoded source.
+     * @param audioBuffer Buffer of the decoded src.
      * @param audioManager Manager that created the associated AudioBuffer.
      */
     constructor(src: string, audioBuffer: AudioBuffer, audioManager: AudioManager) {
@@ -137,7 +139,7 @@ class PlayableNode {
      * If the audio context is in a suspended state, it attempts to unlock the audio context before playing and will
      * continue after the user has interacted with the website.
      *
-     * @param posVec - An optional parameter representing the 3D spatial position of the audio source.
+     * @param posVec - An optional parameter representing the 3D spatial position of the audio src.
      *                 If provided, the audio will be spatialized using a PannerNode based on the given position vector.
      * @returns A Promise that resolves once the audio playback starts.
      */
@@ -148,7 +150,7 @@ class PlayableNode {
         if (this._isPlaying) {
             this.stop();
         } else if (_audioContext.state === 'suspended') {
-            await _unlockAudioContext();
+            await this._audioManager._unlockAudioContext();
         }
         this._audioNode = new AudioBufferSourceNode(_audioContext, {
             buffer: this._audioBuffer,
@@ -194,7 +196,7 @@ class PlayableNode {
         if (this._isPlaying) {
             this.stop();
         } else if (_audioContext.state === 'suspended') {
-            await _unlockAudioContext();
+            await this._audioManager._unlockAudioContext();
         }
         this._audioNode = new AudioBufferSourceNode(_audioContext, {
             buffer: this._audioBuffer,
