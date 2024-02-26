@@ -139,55 +139,72 @@ class PlayableNode {
      *
      * @param posVec - An optional parameter representing the 3D spatial position of the audio source.
      *                 If provided, the audio will be spatialized using a PannerNode based on the given position vector.
-     * @param pannerOptions - An optional parameter that is used to configure a WebAudio PannerNode. This is only for
-     *                 advanced configuration, beyond the spatial positioning.
      * @returns A Promise that resolves once the audio playback starts.
-     * @throws If there is an error during the playback process, a warning is logged to the console.
      */
-    async play(posVec?: Float32Array, pannerOptions?: PannerOptions): Promise<void> {
-        try {
-            if (this.isPlaying) {
-                this.stop();
-            }
-            if (_audioContext.state === 'suspended') {
-                await _unlockAudioContext();
-            }
-            this._audioNode = new AudioBufferSourceNode(_audioContext, {
-                buffer: this._audioBuffer,
-                loop: this.loop,
-            });
-            if (pannerOptions !== undefined) {
-                this._pannerNode = new PannerNode(_audioContext, pannerOptions);
-                this._audioNode.connect(this._pannerNode).connect(this._gainNode);
-            }
-            else if (posVec !== undefined) {
-                this._pannerNode = new PannerNode(_audioContext, {
-                    coneInnerAngle: 360,
-                    coneOuterAngle: 0,
-                    coneOuterGain: 0,
-                    distanceModel: 'exponential' as DistanceModelType,
-                    maxDistance: 10000,
-                    refDistance: 1.0,
-                    rolloffFactor: 1.0,
-                    panningModel: this.HRTF ? 'HRTF' : 'equalpower',
-                    positionX: posVec[0],
-                    positionY: posVec[2],
-                    positionZ: -posVec[1],
-                    orientationX: 0,
-                    orientationY: 0,
-                    orientationZ: 1,
-                });
-                this._audioNode.connect(this._pannerNode).connect(this._gainNode);
-            }
-            else {
-                this._audioNode.connect(this._gainNode);
-            }
-            this._audioNode.addEventListener('ended', this.stop);
-            this._audioNode.start();
-            this._isPlaying = true;
-        } catch (e) {
-            console.warn(e);
+    async play(posVec?: Float32Array): Promise<void> {
+        if (this._destroy) {
+            throw 'playable-node: play() was called on destroyed node!';
         }
+        if (this._isPlaying) {
+            this.stop();
+        } else if (_audioContext.state === 'suspended') {
+            await _unlockAudioContext();
+        }
+        this._audioNode = new AudioBufferSourceNode(_audioContext, {
+            buffer: this._audioBuffer,
+            loop: this.loop,
+        });
+        if (posVec !== undefined) {
+            this._pannerNode = new PannerNode(_audioContext, {
+                coneInnerAngle: 360,
+                coneOuterAngle: 0,
+                coneOuterGain: 0,
+                distanceModel: 'exponential' as DistanceModelType,
+                maxDistance: 10000,
+                refDistance: 1.0,
+                rolloffFactor: 1.0,
+                panningModel: this.HRTF ? 'HRTF' : 'equalpower',
+                positionX: posVec![0],
+                positionY: posVec![2],
+                positionZ: -posVec![1],
+                orientationX: 0,
+                orientationY: 0,
+                orientationZ: 1,
+            });
+            this._audioNode.connect(this._pannerNode!).connect(this._gainNode);
+        } else {
+            this._audioNode.connect(this._gainNode);
+        }
+        this._audioNode.addEventListener('ended', this.stop);
+        this._audioNode.start();
+        this._isPlaying = true;
+    }
+
+    /**
+     * This is an alternative to the regular `play()` function, with advanced customization options for the distance
+     * model and directional fall-off.
+     *
+     * @param pannerOptions Sets the options for the WebAudio PannerNode.
+     * @returns A Promise that resolves once the audio playback starts.
+     */
+    async playWithAdvancedConfig(pannerOptions: PannerOptions): Promise<void> {
+        if (this._destroy) {
+            throw 'playable-node: play() was called on destroyed node!';
+        }
+        if (this._isPlaying) {
+            this.stop();
+        } else if (_audioContext.state === 'suspended') {
+            await _unlockAudioContext();
+        }
+        this._audioNode = new AudioBufferSourceNode(_audioContext, {
+            buffer: this._audioBuffer,
+            loop: this.loop,
+        });
+        this._pannerNode = new PannerNode(_audioContext, pannerOptions);
+        this._audioNode.connect(this._pannerNode!).connect(this._gainNode);
+        this._audioNode.addEventListener('ended', this.stop);
+        this._audioNode.start();
+        this._isPlaying = true;
     }
 
     /**
@@ -228,13 +245,6 @@ class PlayableNode {
 
     /**
      * Free's up the audio resources after Node stopped playing.
-     *
-     * @example
-     * ```js
-     * this.audio.play() // plays entire audio file
-     * this.destroy()    // frees resources
-     * this.audio.play() // does nothing
-     * ```
      */
     destroy() {
         if (this._isPlaying) {
@@ -244,12 +254,8 @@ class PlayableNode {
             this._gainNode.disconnect();
         }
 
-        /* Remove ability to re-trigger the sound */
-        this.play = this._removePlay.bind(this);
         this.destroy = () => {};
     }
-
-    private async _removePlay(): Promise<void> {}
 }
 
 export const globalAudioManager = new AudioManager();

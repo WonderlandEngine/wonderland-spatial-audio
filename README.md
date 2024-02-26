@@ -45,19 +45,44 @@ If `spatial` is set to `none`, all settings below are ignored.
 
 ### AudioManager
 
-1. Instantiate a playable audio node by invoking the `load()` method of the `AudioManager` class. This method returns a promise that resolves to an audio node upon successful loading of the audio resource.
+```js
+// Load your audio on start(), so it is ready when you need it.
+start() {
+    this.audio = globalAudioManager.load('path_to_audiofile')
+        .then((playableNode) => {
+            return playableNode;
+        });
+}
+
+// Play the file when you need it.
+onClick() {
+    // Play's the audio without panning
+    this.audio.play(); 
+
+    const position: Float32Array = new Float32Array(3);
+    this.object.getPositionWorld(position);
+    // Play's from specified position relative to audio-listener
+    this.audio.play(position);
+}
+
+// Free up the resources, if audio is not needed anymore.
+this.audio.destroy();
+```
+
+1. Instantiate a playable audio node by invoking the `load()` method of the `AudioManager` class. This method 
+   returns a promise that resolves to an audio node upon successful loading of the audio resource. You can create 
+   your own `AudioManager`, per scene for example, but `wonderland-spatial-audio` also provides a `globalAudioManager`.
 
 2. The `play()` method initiates the playback of the audio node. For spatialized audio playback, supply the `play()` method with a position argument in the form `play(pos)`.
 
 3. Each audio node instance exposes several properties for advanced configuration:
 
 ```js
-/* The 'volume' property controls the amplitude of the audio output. 
- * It accepts a float value between 0.0 (silence) and 1.0 (maximum volume). */
+/* The 'volume' property controls the amplitude of the audio output. */
 this.audio.volume = 0.5;
 
 /* The 'HRTF' property, when set to true, enables full HRTF (Head-Related Transfer Function) spatialization,
- * as opposed to standard panning. */
+ * as opposed to standard panning, for better immersion. */
 this.audio.HRTF = true;
 
 /* The 'loop' property, when set to true, causes the audio to repeat indefinitely. */
@@ -66,25 +91,8 @@ this.audio.loop = true;
 
 4. The `destroy()` method deallocates the resources associated with the audio node, effectively removing it from memory.
 
-Here is an example of how to use the `AudioManager` class:
-
-```js
-// Load your audio on start(), so it is ready when you need it.
-async start() {
-    this.audio = AudioManager.load('path_to_audiofile')
-        .then((playableNode) => {
-            return playableNode;
-        });
-}
-
-// Play the file when you need it.
-onClick() {
-    this.audio.play();
-}
-
-// Free up the resources, if audio is not needed anymore.
-this.audio.destroy();
-```
+:warning: As these AudioNodes only play from the specified position, use `audio-source` for any moving objects that
+emmit sound. 
 
 ## Considerations
 
