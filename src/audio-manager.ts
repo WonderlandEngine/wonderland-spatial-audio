@@ -139,10 +139,12 @@ class PlayableNode {
      *
      * @param posVec - An optional parameter representing the 3D spatial position of the audio source.
      *                 If provided, the audio will be spatialized using a PannerNode based on the given position vector.
+     * @param pannerOptions - An optional parameter that is used to configure a WebAudio PannerNode. This is only for
+     *                 advanced configuration, beyond the spatial positioning.
      * @returns A Promise that resolves once the audio playback starts.
      * @throws If there is an error during the playback process, a warning is logged to the console.
      */
-    async play(posVec?: Float32Array): Promise<void> {
+    async play(posVec?: Float32Array, pannerOptions?: PannerOptions): Promise<void> {
         try {
             if (this.isPlaying) {
                 this.stop();
@@ -154,7 +156,11 @@ class PlayableNode {
                 buffer: this._audioBuffer,
                 loop: this.loop,
             });
-            if (posVec !== undefined) {
+            if (pannerOptions !== undefined) {
+                this._pannerNode = new PannerNode(_audioContext, pannerOptions);
+                this._audioNode.connect(this._pannerNode).connect(this._gainNode);
+            }
+            else if (posVec !== undefined) {
                 this._pannerNode = new PannerNode(_audioContext, {
                     coneInnerAngle: 360,
                     coneOuterAngle: 0,
@@ -172,7 +178,8 @@ class PlayableNode {
                     orientationZ: 1,
                 });
                 this._audioNode.connect(this._pannerNode).connect(this._gainNode);
-            } else {
+            }
+            else {
                 this._audioNode.connect(this._gainNode);
             }
             this._audioNode.addEventListener('ended', this.stop);
