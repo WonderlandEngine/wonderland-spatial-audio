@@ -5,7 +5,6 @@ const SAMPLE_RATE = 48000;
 const FADE_DURATION = 5 / 1000;
 const tempVec: Float32Array = new Float32Array(3);
 const tempVec2: Float32Array = new Float32Array(3);
-export const audioBuffers: {[key: string]: Promise<AudioBuffer>} = {};
 
 /**
  * Variables
@@ -20,24 +19,6 @@ if (window.AudioContext !== undefined) {
 
 export {_audioContext};
 
-export async function getAudioData(file: string) {
-    try {
-        if (await audioBuffers[file]) return;
-
-        const response = await fetch(file);
-
-        if (!response.ok) {
-            console.error(`audio-listener: Failed to fetch audio data from ${file}`);
-            return;
-        }
-
-        const buffer = await response.arrayBuffer();
-        audioBuffers[file] = _audioContext.decodeAudioData(buffer);
-    } catch (error) {
-        console.error(`audio-listener: Error in getAudioData for file ${file}`);
-        return;
-    }
-}
 /**
  * Represents a Wonderland audio listener component.
  * Updates the position and orientation of a WebAudio listener instance.
