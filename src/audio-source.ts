@@ -31,7 +31,7 @@ export class AudioSource extends Component {
      * Maximum volume a source can have. From 0 to 1 (0% to 100%).
      */
     @property.float(1.0)
-    maxVolume!: number;
+    volume!: number;
 
     /** Path to the audio file that should be played. */
     @property.string()
@@ -106,7 +106,7 @@ export class AudioSource extends Component {
             return;
         }
         this.gainNode = new GainNode(_audioContext, {
-            gain: this.maxVolume,
+            gain: this.volume,
         });
         this.gainNode.connect(_audioContext.destination);
         this.isLoaded = getAudioData(this.src);
