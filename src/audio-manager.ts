@@ -1,24 +1,14 @@
 import {_audioContext} from './audio-listener.js';
 
-const _bufferCache: Map<string, [AudioBuffer, number]> = new Map();
+const RAMP_TIME = 20 / 1000;
 
-function _remove(source: string) {
-    if (_bufferCache.has(source)) {
-        const [, referenceCount] = _bufferCache.get(source)!;
-        if (referenceCount > 1) {
-            const [audioBuffer, referenceCount] = _bufferCache.get(source)!;
-            _bufferCache.set(source, [audioBuffer, referenceCount - 1]);
-        } else {
-            _bufferCache.delete(source);
-        }
-    }
-}
-
-/** AudioManager loads and manages audiofiles from which PlayableNodes are created
+/**
+ * AudioManager loads and manages audio files from which PlayableNodes are created.
+ *
  * @example
- * ```
+ * ```js
  * async start() {
- *      this.audio = await AudioManager.load('click.wav');
+ *      this.audio = await audioManager.load('click.wav');
  * }
  * onPress() {
  *      this.audio.play();
@@ -27,28 +17,63 @@ function _remove(source: string) {
  * this.audio.destroy();
  * ```
  */
-export const AudioManager = {
+export class AudioManager {
+    private _bufferCache: Map<string, [AudioBuffer, number]> = new Map();
+
+    /**
+     * Creates a PlayableNode from provided audio file.
+     *
+     * @param source Path to the file from which to create a PlayableNode.
+     */
     async load(source: string): Promise<PlayableNode> {
-        if (_bufferCache.has(source)) {
-            const [audioBuffer, referenceCount] = _bufferCache.get(source)!;
-            _bufferCache.set(source, [audioBuffer, referenceCount + 1]);
-            return new PlayableNode(source, audioBuffer);
+        return new PlayableNode(source, await this._add(source), this);
+    }
+
+    /**
+     * Adds the specified file to cache.
+     * @param source Path to the file that should be added to cache.
+     * @warning This is for internal use only, use at own risk!
+     */
+    async _add(source: string): Promise<AudioBuffer> {
+        if (this._bufferCache.has(source)) {
+            const [audioBuffer, referenceCount] = this._bufferCache.get(source)!;
+            this._bufferCache.set(source, [audioBuffer, referenceCount + 1]);
+            return audioBuffer;
         }
 
-        try {
-            const response = await fetch(source);
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await _audioContext.decodeAudioData(arrayBuffer);
+        const response = await fetch(source);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await _audioContext.decodeAudioData(arrayBuffer);
 
-            _bufferCache.set(source, [audioBuffer, 1]);
-            return new PlayableNode(source, audioBuffer);
-        } catch (error) {
-            throw error;
+        this._bufferCache.set(source, [audioBuffer, 1]);
+        return audioBuffer;
+    }
+
+    /**
+     * Removes the specified file from cache.
+     *
+     * @param source Path to the file that should be evicted from cache.
+     * @warning This is for internal use only, use at own risk!
+     */
+    _remove(source: string) {
+        if (!this._bufferCache.has(source)) {
+            return;
         }
-    },
-};
+        const [, referenceCount] = this._bufferCache.get(source)!;
+        if (referenceCount > 1) {
+            const [audioBuffer, referenceCount] = this._bufferCache.get(source)!;
+            this._bufferCache.set(source, [audioBuffer, referenceCount - 1]);
+        } else {
+            this._bufferCache.delete(source);
+        }
+    }
+}
 
-/* AudioContext only unlocks on user interaction, so we wait until the user interacted and the resume */
+/**
+ * Returns a promise that fulfills when the audioContext resumes.
+ *
+ * @note WebAudio AudioContext only resumes on user interaction.
+ */
 async function _unlockAudioContext(): Promise<void> {
     return new Promise<void>((resolve) => {
         const unlockHandler = () => {
@@ -72,16 +97,17 @@ async function _unlockAudioContext(): Promise<void> {
  * Represents a playable audio node that can be used to play audio panned or without panning.
  *
  * @note Use the `destroy()` method if audio is not going to be used anymore, to avoid unused audio files
- * clogging up memory
+ * clogging up memory.
  */
 class PlayableNode {
-    /** Whether to loop the audio */
+    /** Whether to loop the audio. */
     public loop: boolean = false;
 
-    /** Whether to enable HRTF over regular panning */
+    /** Whether to enable HRTF over regular panning. */
     public HRTF: boolean = false;
 
     private _audioBuffer: AudioBuffer;
+    private _audioManager: AudioManager;
     private _source: string;
     private _isPlaying: boolean = false;
     private _gainNode: GainNode = new GainNode(_audioContext);
@@ -89,21 +115,32 @@ class PlayableNode {
     private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
     private _destroy: boolean = false;
 
-    constructor(src: string, audioBuffer: AudioBuffer) {
+    /**
+     * Constructs a PlayableNode.
+     *
+     * @warning This is for internal use only. PlayableNode's should only be created via the AudioManager's `load()`
+     * function.
+     * @param src Path to the audio file.
+     * @param audioBuffer Buffer of the decoded source.
+     * @param audioManager Manager that created the associated AudioBuffer.
+     */
+    constructor(src: string, audioBuffer: AudioBuffer, audioManager: AudioManager) {
         this._audioBuffer = audioBuffer;
+        this._audioManager = audioManager;
         this._source = src;
         this._gainNode.connect(_audioContext.destination);
     }
 
     /**
-     * Asynchronously plays the loaded audio. If the audio is already playing, it stops the current playback and starts anew.
+     * Asynchronously plays the loaded audio. If the audio is already playing, it stops the current playback and
+     * starts from the beginning.
      * If the audio context is in a suspended state, it attempts to unlock the audio context before playing and will
      * continue after the user has interacted with the website.
      *
      * @param posVec - An optional parameter representing the 3D spatial position of the audio source.
      *                 If provided, the audio will be spatialized using a PannerNode based on the given position vector.
      * @returns A Promise that resolves once the audio playback starts.
-     * @throws - If there is an error during the playback process, a warning is logged to the console.
+     * @throws If there is an error during the playback process, a warning is logged to the console.
      */
     async play(posVec?: Float32Array): Promise<void> {
         try {
@@ -162,7 +199,7 @@ class PlayableNode {
         }
         this._isPlaying = false;
         if (this._destroy) {
-            _remove(this._source);
+            this._audioManager._remove(this._source);
             this._gainNode.disconnect();
         }
     }
@@ -175,17 +212,18 @@ class PlayableNode {
     }
 
     /**
-     * Sets the volume of this PlayableNode
+     * Sets the volume of this PlayableNode.
      */
     set volume(v: number) {
-        this._gainNode.gain.value = v;
+        const time = _audioContext.currentTime + RAMP_TIME;
+        this._gainNode.gain.exponentialRampToValueAtTime(v, time);
     }
 
     /**
      * Free's up the audio resources after Node stopped playing.
      *
      * @example
-     * ```
+     * ```js
      * this.audio.play() // plays entire audio file
      * this.destroy()    // frees resources
      * this.audio.play() // does nothing
@@ -195,7 +233,7 @@ class PlayableNode {
         if (this._isPlaying) {
             this._destroy = true;
         } else {
-            _remove(this._source);
+            this._audioManager._remove(this._source);
             this._gainNode.disconnect();
         }
 
@@ -206,3 +244,5 @@ class PlayableNode {
 
     private async _removePlay(): Promise<void> {}
 }
+
+export const globalAudioManager = new AudioManager();
