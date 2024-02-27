@@ -1,6 +1,11 @@
 import {chromeLauncher} from '@web/test-runner';
 import {resolve} from 'path';
 import {symlinkSync, existsSync, unlinkSync, lstatSync, rmdirSync} from 'fs';
+import {fileURLToPath} from 'url';
+
+import {esbuildPlugin} from '@web/dev-server-esbuild';
+
+console.log(`[TestRunner]: Reading configuration file`);
 
 function findDeployFolder() {
     if ('DEPLOY_FOLDER' in process.env) return process.env['DEPLOY_FOLDER'];
@@ -39,7 +44,7 @@ symlinkSync(deployRoot, 'deploy', 'junction');
 export default {
     concurrency: 10,
     nodeResolve: true,
-    files: ['test/**/*.test.js'],
+    files: ['test/**/*.test.ts'],
 
     browsers: [
         chromeLauncher({
@@ -54,4 +59,11 @@ export default {
             timeout: '15000',
         },
     },
+    
+    plugins: [
+        esbuildPlugin({
+            ts: true,
+            tsconfig: fileURLToPath(new URL('./test/tsconfig.json', import.meta.url)),
+        })
+    ],
 };

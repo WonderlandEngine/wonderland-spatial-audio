@@ -1,7 +1,7 @@
 import {expect} from '@esm-bundle/chai';
 
 import {init} from './setup.js';
-import {AudioSource} from '../dist/index.js';
+import {AudioSource} from '../dist';
 
 before(init);
 
@@ -20,7 +20,7 @@ describe('AudioSource', function () {
             'isStationary',
             'loop',
             'maxDistance',
-            'maxVolume',
+            'volume',
             'refDistance',
             'rolloffFactor',
             'spatial',
@@ -32,14 +32,12 @@ describe('AudioSource', function () {
         const audioObject = WL.scene.addObject();
         audioObject.name = 'o';
 
-        let source = audioObject.addComponent(AudioSource, {});
-
-        source = audioObject.addComponent(AudioSource, {
-            src: 'audio-files/welcome.wav',
+        const audio = audioObject.addComponent(AudioSource, {
+            src: 'test/resources/welcome.wav',
         });
 
-        expect(source).to.not.be.null;
-        expect(source.src).to.equal('audio-files/welcome.wav');
-        expect(source.maxVolume).to.equal(1.0);
+        expect(audio).to.not.be.null;
+        expect(audio.src).to.equal('test/resources/welcome.wav');
+        expect(audio.volume).to.equal(1.0);
     });
 });
