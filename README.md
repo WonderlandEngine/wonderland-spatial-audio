@@ -48,9 +48,8 @@ If `spatial` is set to `none`, all settings below are ignored.
 ```js
 // Load your audio on start(), so it is ready when you need it.
 start() {
-    this.audio = globalAudioManager.load('path_to_audiofile')
-        .then((playableNode) => {
-            return playableNode;
+        globalAudioManager.load('audio.mp3').then((playableNode) => {
+            this.click = playableNode;
         });
 }
 
