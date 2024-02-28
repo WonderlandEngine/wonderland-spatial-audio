@@ -48,20 +48,19 @@ If `spatial` is set to `none`, all settings below are ignored.
 ```js
 // Load your audio on start(), so it is ready when you need it.
 start() {
-    this.audio = globalAudioManager.load('path_to_audiofile')
-        .then((playableNode) => {
-            return playableNode;
-        });
+    globalAudioManager.load('audio.mp3').then((playableNode) => {
+        this.audio = playableNode;
+    });
 }
 
 // Play the file when you need it.
 onClick() {
-    // Play's the audio without panning
+    // Plays the audio without panning
     this.audio.play(); 
 
-    const position: Float32Array = new Float32Array(3);
+    const position = new Float32Array(3);
     this.object.getPositionWorld(position);
-    // Play's from specified position relative to audio-listener
+    // Plays from specified position relative to audio-listener
     this.audio.play(position);
 }
 
