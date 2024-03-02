@@ -24,12 +24,19 @@ jobs:
         cd ..
       env:
           WLE_CREDENTIALS: ${{ secrets.WLE_CREDENTIALS }}
+    - name: test
+      run: |
+        export CHROME_PATH="$(which google-chrome)"
+        echo "CHROME_PATH=$CHROME_PATH" >> $GITHUB_ENV
+        npm install
+        npm run watch
     - name: Gzip
       run: gzip -k ./example/deploy/*.*
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v1
       with:
         path: ./example/deploy
+
 
   deploy-pages:
     permissions:
