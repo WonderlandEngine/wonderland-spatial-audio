@@ -1,5 +1,3 @@
-// audio-manager.spec.ts
-
 import {expect} from '@esm-bundle/chai';
 import {AudioManager} from '../dist';
 import {_audioContext} from '../dist/audio-listener';
@@ -11,7 +9,6 @@ const SRC_WELCOME = 'test/resources/welcome.wav'; // Adjust the source path as n
 let audioManager: AudioManager;
 
 describe('AudioManager', () => {
-
     beforeEach(() => {
         audioManager = new AudioManager();
     });
@@ -55,7 +52,7 @@ describe('AudioManager', () => {
 });
 
 describe('PlayableNode', () => {
-    it('should be able to play sound', async () => {
+    it('should be able to play and stop sound', async () => {
         const audio = await audioManager.load(SRC_WELCOME);
 
         expectSuccess(audio.play()).then(() => {
@@ -64,5 +61,34 @@ describe('PlayableNode', () => {
             audio.stop();
             expect(audio['_isPlaying']).to.be.false;
         });
+    });
+
+    it('should be able to change the volume', async () => {
+        const audio = await audioManager.load(SRC_WELCOME);
+
+        expect(audio['_gainNode'].gain.value).to.equal(1.0);
+        audio.volume = 0.5;
+        expect(audio['_gainNode'].gain.value).to.equal(0.5);
+
+        expectSuccess(audio.play()).then(async () => {
+            expect(audio.isPlaying).to.be.true;
+            expect(audio['_gainNode'].gain.value).to.equal(0.5);
+            audio.volumeRampTime = 0.5;
+            expect(audio['_rampTime']).to.equal(0.5);
+            audio.volume = 0.7;
+            expect(audio['_gainNode'].gain.value).lessThan(0.7);
+            await new Promise((f) => setTimeout(f, audio['_rampTime']));
+            expect(audio['_gainNode'].gain.value).to.equal(0.7);
+            audio.stop();
+            expect(audio['_isPlaying']).to.be.false;
+        });
+
+        /* Test that volume rampTime cant be set to 0 */
+        audio.volumeRampTime = 0;
+        expect(audio['_rampTime']).to.be.greaterThan(0);
+    });
+
+    it('should be able to change the volume', async () => {
+        const audio = await audioManager.load(SRC_WELCOME);
     });
 });

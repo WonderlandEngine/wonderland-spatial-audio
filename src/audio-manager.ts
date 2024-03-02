@@ -1,7 +1,5 @@
 import {_audioContext} from './audio-listener.js';
 
-const RAMP_TIME = 20 / 1000;
-
 /**
  * AudioManager loads and manages audio files from which PlayableNodes are created.
  *
@@ -116,9 +114,10 @@ class PlayableNode {
     private _pannerNode: PannerNode | undefined;
     private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
     private _destroy: boolean = false;
+    private _rampTime: number = 0.005;
 
     /**
-     * Constructs a PlayableNode.
+     * Constructs a PlayableNode
      *
      * @warning This is for internal use only. PlayableNode's should only be created via the AudioManager's `load()`
      * function.
@@ -230,6 +229,8 @@ class PlayableNode {
         }
     }
 
+
+
     /**
      * Checks if the audio node is currently playing.
      */
@@ -238,10 +239,26 @@ class PlayableNode {
     }
 
     /**
+     * Sets the time it takes for the volume to reach its specified value when it is playing.
+     *
+     * @param t Time in seconds.
+     */
+    set volumeRampTime(t: number) {
+        this._rampTime = Math.max(0.005, t);
+    }
+
+    /**
      * Sets the volume of this PlayableNode.
+     *
+     * @note If node is playing, volume will be set over time, according to the volumeRampTime (default is 5 ms).
+     * Is the audio not playing, volume will be set instantly.
      */
     set volume(v: number) {
-        const time = _audioContext.currentTime + RAMP_TIME;
+        if (!this._isPlaying) {
+            this._gainNode.gain.value = v;
+            return;
+        }
+        const time = _audioContext.currentTime + this._rampTime;
         this._gainNode.gain.exponentialRampToValueAtTime(v, time);
     }
 
@@ -249,14 +266,13 @@ class PlayableNode {
      * Free's up the audio resources after Node stopped playing.
      */
     destroy() {
+        if (this._destroy) return;
         if (this._isPlaying) {
             this._destroy = true;
         } else {
             this._audioManager._remove(this._source);
             this._gainNode.disconnect();
         }
-
-        this.destroy = () => {};
     }
 }
 
