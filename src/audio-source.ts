@@ -22,7 +22,7 @@ export class AudioSource extends Component {
     static onRegister(engine: WonderlandEngine) {
         engine.registerComponent(AudioListener);
     }
-    
+
     /** Path to the audio file that should be played. */
     @property.string()
     src!: string;
@@ -135,7 +135,7 @@ export class AudioSource extends Component {
                 break;
             case 1:
                 this._hrtf = false;
-                /* Fallthrough is wanted here, since the steps are the same otherwise. */
+            /* Fallthrough is wanted here, since the steps are the same otherwise. */
             default:
                 this._updateSettings();
                 this._pannerNode = new PannerNode(_audioContext, this._pannerOptions);

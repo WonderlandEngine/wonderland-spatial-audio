@@ -112,10 +112,14 @@ class PlayableNode {
     private _audioManager: AudioManager;
     private _source: string;
     private _isPlaying: boolean = false;
-    private _gainNode: GainNode = new GainNode(_audioContext);
+    private _volume: number = 1.0;
+    private _gainNode: GainNode = new GainNode(_audioContext, {
+        gain: this._volume,
+    });
     private _pannerNode: PannerNode | undefined;
     private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
     private _destroy: boolean = false;
+    private _rampTime: number = 0.005;
 
     /**
      * Constructs a PlayableNode.
@@ -231,6 +235,23 @@ class PlayableNode {
     }
 
     /**
+     * Analog to `play()` but crossfades with a given node. Stops the playback of given node after transition.
+     *
+     * @note This will set the given nodes volume to 0 after transition is done.
+     * @param node Node to transition from.
+     * @param duration Time it takes for crossfade to complete in seconds.
+     */
+    playTransitionFrom(node: PlayableNode, duration: number) {
+        this.volume = 0;
+        this.play();
+        const time = _audioContext.currentTime + duration;
+        this._gainNode.gain.exponentialRampToValueAtTime(this._volume, time);
+        node['_gainNode'].gain.exponentialRampToValueAtTime(0, time);
+        node['_volume'] = 0;
+        setTimeout(node.stop, duration * 1000);
+    }
+
+    /**
      * Checks if the audio node is currently playing.
      */
     get isPlaying(): boolean {
@@ -238,11 +259,32 @@ class PlayableNode {
     }
 
     /**
+     * Sets the time it takes for the volume to reach its specified value when it is playing.
+     *
+     * @param t Time in seconds.
+     */
+    set volumeRampTime(t: number) {
+        this._rampTime = Math.max(0.005, t);
+    }
+
+    /**
      * Sets the volume of this PlayableNode.
+     *
+     * @note If node is playing, volume will be set over time, according to the volumeRampTime (default is 5 ms).
+     * Is the audio not playing, volume will be set instantly.
      */
     set volume(v: number) {
-        const time = _audioContext.currentTime + RAMP_TIME;
+        this._volume = v;
+        if (!this._isPlaying) {
+            this._gainNode.gain.value = v;
+            return;
+        }
+        const time = _audioContext.currentTime + this._rampTime;
         this._gainNode.gain.exponentialRampToValueAtTime(v, time);
+    }
+
+    get volume(): number {
+        return this._volume;
     }
 
     /**
