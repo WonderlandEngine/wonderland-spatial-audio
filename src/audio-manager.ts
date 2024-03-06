@@ -1,10 +1,15 @@
 import {_audioContext} from './audio-listener.js';
-import {Emitter} from "@wonderlandengine/api";
+import {Emitter, ListenerCallback} from '@wonderlandengine/api';
 
 /* Ramp times of 0 cause a click, 5 ms should be sufficient */
 const MIN_RAMP_TIME = 5 / 1000;
 /* Needed because WebAudio volumes don't accept 0 as valid volume */
 const MIN_VOLUME = 0.001;
+
+export enum PlayState {
+    PLAYING,
+    STOPPED,
+}
 
 /**
  * AudioManager loads and manages audio files from which PlayableNodes are created.
@@ -124,6 +129,7 @@ class PlayableNode {
     private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
     private _destroy: boolean = false;
     private _rampTime: number = MIN_RAMP_TIME;
+    private _callback: ((state?: PlayState) => void) | undefined;
 
     /**
      * Constructs a PlayableNode.
@@ -139,6 +145,8 @@ class PlayableNode {
         this._audioManager = audioManager;
         this._source = src;
         this._gainNode.connect(_audioContext.destination);
+        // @todo: why is this necessary
+        this.stop = this.stop.bind(this);
     }
 
     /**
@@ -222,6 +230,13 @@ class PlayableNode {
         this._audioNode.addEventListener('ended', this.stop);
         this._audioNode.start();
         this._isPlaying = true;
+        if (this._callback) {
+            this._callback(PlayState.PLAYING);
+        }
+    }
+
+    set listener(listener: (state?: PlayState) => void) {
+        this._callback = listener;
     }
 
     /**
@@ -242,6 +257,9 @@ class PlayableNode {
         if (this._destroy) {
             this._audioManager._remove(this._source);
             this._gainNode.disconnect();
+        }
+        if (this._callback) {
+            this._callback(PlayState.STOPPED);
         }
     }
 
