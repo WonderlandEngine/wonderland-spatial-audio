@@ -99,11 +99,6 @@ export class AudioManager {
     }
 }
 
-enum PlayState {
-    PLAYING,
-    STOPPED
-}
-
 /**
  * Represents a playable audio node that can be used to play audio panned or without panning.
  *
@@ -129,7 +124,6 @@ class PlayableNode {
     private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
     private _destroy: boolean = false;
     private _rampTime: number = MIN_RAMP_TIME;
-    private _emitter: Emitter<[PlayState]> ;
 
     /**
      * Constructs a PlayableNode.
@@ -145,7 +139,6 @@ class PlayableNode {
         this._audioManager = audioManager;
         this._source = src;
         this._gainNode.connect(_audioContext.destination);
-        this._emitter = new Emitter<[PlayState]>();
     }
 
     /**
@@ -250,12 +243,6 @@ class PlayableNode {
             this._audioManager._remove(this._source);
             this._gainNode.disconnect();
         }
-        console.log(this._emitter);
-        this._emitter.notify(PlayState.STOPPED);
-    }
-
-    get emitter() {
-        return this._emitter;
     }
 
     /**
