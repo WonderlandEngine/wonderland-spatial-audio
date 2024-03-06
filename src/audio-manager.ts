@@ -1,6 +1,10 @@
 import {_audioContext} from './audio-listener.js';
+import {Emitter} from "@wonderlandengine/api";
 
-const RAMP_TIME = 20 / 1000;
+/* Ramp times of 0 cause a click, 5 ms should be sufficient */
+const MIN_RAMP_TIME = 5 / 1000;
+/* Needed because WebAudio volumes don't accept 0 as valid volume */
+const MIN_VOLUME = 0.001;
 
 /**
  * AudioManager loads and manages audio files from which PlayableNodes are created.
@@ -95,6 +99,11 @@ export class AudioManager {
     }
 }
 
+enum PlayState {
+    PLAYING,
+    STOPPED
+}
+
 /**
  * Represents a playable audio node that can be used to play audio panned or without panning.
  *
@@ -119,7 +128,8 @@ class PlayableNode {
     private _pannerNode: PannerNode | undefined;
     private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
     private _destroy: boolean = false;
-    private _rampTime: number = 0.005;
+    private _rampTime: number = MIN_RAMP_TIME;
+    private _emitter: Emitter<[PlayState]> ;
 
     /**
      * Constructs a PlayableNode.
@@ -135,19 +145,47 @@ class PlayableNode {
         this._audioManager = audioManager;
         this._source = src;
         this._gainNode.connect(_audioContext.destination);
+        this._emitter = new Emitter<[PlayState]>();
     }
 
     /**
-     * Asynchronously plays the loaded audio. If the audio is already playing, it stops the current playback and
-     * starts from the beginning.
-     * If the audio context is in a suspended state, it attempts to unlock the audio context before playing and will
-     * continue after the user has interacted with the website.
+     * Plays the audio associated with the PlayableNode. If the node is already playing,
+     * it stops the current playback before starting from the beginning. If the Web Audio API
+     * context is in a 'suspended' state, it unlocks the audio context before starting
+     * the playback.
      *
-     * @param posVec - An optional parameter representing the 3D spatial position of the audio src.
-     *                 If provided, the audio will be spatialized using a PannerNode based on the given position vector.
-     * @returns A Promise that resolves once the audio playback starts.
+     * @async
+     * @param {Float32Array | PannerOptions} [config] - Optional configuration for audio playback.
+     *     If not provided, the audio plays without panning.
+     *     - If a Float32Array is provided, it is used as position coordinates for a PannerNode.
+     *     - If a PannerOptions object is provided, it configures the PannerNode accordingly.
+     *       see Readme for all PannerOptions settings {@link https://github.com/WonderlandEngine/wonderland-spatial-audio/blob/main/README.md}
+     *
+     * @throws Throws an error if the PlayableNode is destroyed, or if the
+     *     configuration is invalid.
+     *
+     * @returns {Promise<void>} - A promise resolving when the audio playback starts.
+     *
+     * @example
+     * // Basic usage without configuration
+     * playableNode.play();
+     *
+     * // Usage with position configuration
+     * const position = new Float32Array([1.0, 2.0, 3.0]);
+     * playableNode.play(position);
+     *
+     * // Usage with PannerOptions configuration
+     * const pannerConfig = {
+     *   coneInnerAngle: 360,
+     *   coneOuterAngle: 0,
+     *   // ... other PannerOptions properties
+     *   positionX: 1.0,
+     *   positionY: 2.0,
+     *   positionZ: 3.0,
+     * };
+     * playableNode.play(pannerConfig);
      */
-    async play(posVec?: Float32Array): Promise<void> {
+    async play(config?: Float32Array | PannerOptions): Promise<void> {
         if (this._destroy) {
             throw 'playable-node: play() was called on destroyed node!';
         }
@@ -160,54 +198,34 @@ class PlayableNode {
             buffer: this._audioBuffer,
             loop: this.loop,
         });
-        if (posVec !== undefined) {
-            this._pannerNode = new PannerNode(_audioContext, {
-                coneInnerAngle: 360,
-                coneOuterAngle: 0,
-                coneOuterGain: 0,
-                distanceModel: 'exponential' as DistanceModelType,
-                maxDistance: 10000,
-                refDistance: 1.0,
-                rolloffFactor: 1.0,
-                panningModel: this.HRTF ? 'HRTF' : 'equalpower',
-                positionX: posVec![0],
-                positionY: posVec![2],
-                positionZ: -posVec![1],
-                orientationX: 0,
-                orientationY: 0,
-                orientationZ: 1,
-            });
-            this._audioNode.connect(this._pannerNode!).connect(this._gainNode);
-        } else {
+        if (config === undefined) {
             this._audioNode.connect(this._gainNode);
+        } else {
+            if (config instanceof Float32Array) {
+                this._pannerNode = new PannerNode(_audioContext, {
+                    coneInnerAngle: 360,
+                    coneOuterAngle: 0,
+                    coneOuterGain: 0,
+                    distanceModel: 'exponential' as DistanceModelType,
+                    maxDistance: 10000,
+                    refDistance: 1.0,
+                    rolloffFactor: 1.0,
+                    panningModel: this.HRTF ? 'HRTF' : 'equalpower',
+                    positionX: config![0],
+                    positionY: config![2],
+                    positionZ: -config![1],
+                    orientationX: 0,
+                    orientationY: 0,
+                    orientationZ: 1,
+                });
+                this._audioNode.connect(this._pannerNode!).connect(this._gainNode);
+            } else if (isPannerOptions(config)) {
+                this._pannerNode = new PannerNode(_audioContext, config as PannerOptions);
+                this._audioNode.connect(this._pannerNode!).connect(this._gainNode);
+            } else {
+                throw 'playable-node: Invalid configuration for play()';
+            }
         }
-        this._audioNode.addEventListener('ended', this.stop);
-        this._audioNode.start();
-        this._isPlaying = true;
-    }
-
-    /**
-     * This is an alternative to the regular `play()` function, with advanced customization options for the distance
-     * model and directional fall-off.
-     *
-     * @param pannerOptions Sets the options for the WebAudio PannerNode.
-     * @returns A Promise that resolves once the audio playback starts.
-     */
-    async playWithAdvancedConfig(pannerOptions: PannerOptions): Promise<void> {
-        if (this._destroy) {
-            throw 'playable-node: play() was called on destroyed node!';
-        }
-        if (this._isPlaying) {
-            this.stop();
-        } else if (_audioContext.state === 'suspended') {
-            await this._audioManager._unlockAudioContext();
-        }
-        this._audioNode = new AudioBufferSourceNode(_audioContext, {
-            buffer: this._audioBuffer,
-            loop: this.loop,
-        });
-        this._pannerNode = new PannerNode(_audioContext, pannerOptions);
-        this._audioNode.connect(this._pannerNode!).connect(this._gainNode);
         this._audioNode.addEventListener('ended', this.stop);
         this._audioNode.start();
         this._isPlaying = true;
@@ -232,23 +250,38 @@ class PlayableNode {
             this._audioManager._remove(this._source);
             this._gainNode.disconnect();
         }
+        console.log(this._emitter);
+        this._emitter.notify(PlayState.STOPPED);
+    }
+
+    get emitter() {
+        return this._emitter;
     }
 
     /**
-     * Analog to `play()` but crossfades with a given node. Stops the playback of given node after transition.
+     * Analog to `play()`, but cross-fades with a given node. Stops the playback of given node after transition.
      *
-     * @note This will set the given nodes volume to 0 after transition is done.
      * @param node Node to transition from.
      * @param duration Time it takes for crossfade to complete in seconds.
+     * @param config Optional parameter to specify panning position.
      */
-    playTransitionFrom(node: PlayableNode, duration: number) {
-        this.volume = 0;
-        this.play();
+    playWithCrossfadeTransition(
+        node: PlayableNode,
+        duration: number,
+        config?: Float32Array | PannerOptions
+    ) {
+        duration = Math.max(MIN_RAMP_TIME, duration);
+        this.stop();
+        this._gainNode.gain.value = MIN_VOLUME;
+        this.play(config);
         const time = _audioContext.currentTime + duration;
-        this._gainNode.gain.exponentialRampToValueAtTime(this._volume, time);
-        node['_gainNode'].gain.exponentialRampToValueAtTime(0, time);
-        node['_volume'] = 0;
-        setTimeout(node.stop, duration * 1000);
+        this._gainNode.gain.linearRampToValueAtTime(this._volume, time);
+        node['_gainNode'].gain.linearRampToValueAtTime(MIN_VOLUME, time);
+        setTimeout(() => {
+            node.stop();
+            /* Reset node volume to specified setting, avoiding rampTime */
+            node['_gainNode'].gain.value = node.volume;
+        }, duration * 1000);
     }
 
     /**
@@ -264,23 +297,19 @@ class PlayableNode {
      * @param t Time in seconds.
      */
     set volumeRampTime(t: number) {
-        this._rampTime = Math.max(0.005, t);
+        this._rampTime = Math.max(MIN_RAMP_TIME, t);
     }
 
     /**
      * Sets the volume of this PlayableNode.
      *
-     * @note If node is playing, volume will be set over time, according to the volumeRampTime (default is 5 ms).
-     * Is the audio not playing, volume will be set instantly.
+     * @note Volume will ramp up with the in `volumeRampTime()` specified time (Default is 5ms).
+     * @param v Volume to set the current node.
      */
     set volume(v: number) {
-        this._volume = v;
-        if (!this._isPlaying) {
-            this._gainNode.gain.value = v;
-            return;
-        }
+        this._volume = Math.max(MIN_VOLUME, v);
         const time = _audioContext.currentTime + this._rampTime;
-        this._gainNode.gain.exponentialRampToValueAtTime(v, time);
+        this._gainNode.gain.linearRampToValueAtTime(this._volume, time);
     }
 
     get volume(): number {
@@ -303,3 +332,24 @@ class PlayableNode {
 }
 
 export const globalAudioManager = new AudioManager();
+
+function isPannerOptions(obj: any): obj is PannerOptions {
+    return (
+        typeof obj === 'object' &&
+        obj !== null &&
+        typeof obj.coneInnerAngle === 'number' &&
+        typeof obj.coneOuterAngle === 'number' &&
+        typeof obj.coneOuterGain === 'number' &&
+        typeof obj.distanceModel === 'string' &&
+        typeof obj.maxDistance === 'number' &&
+        typeof obj.refDistance === 'number' &&
+        typeof obj.rolloffFactor === 'number' &&
+        typeof obj.panningModel === 'string' &&
+        typeof obj.positionX === 'number' &&
+        typeof obj.positionY === 'number' &&
+        typeof obj.positionZ === 'number' &&
+        typeof obj.orientationX === 'number' &&
+        typeof obj.orientationY === 'number' &&
+        typeof obj.orientationZ === 'number'
+    );
+}
