@@ -1,5 +1,5 @@
 import {_audioContext} from './audio-listener.js';
-import {Emitter, ListenerCallback} from '@wonderlandengine/api';
+import {Emitter} from '@wonderlandengine/api';
 
 /* Ramp times of 0 cause a click, 5 ms should be sufficient */
 const MIN_RAMP_TIME = 5 / 1000;
@@ -7,8 +7,14 @@ const MIN_RAMP_TIME = 5 / 1000;
 const MIN_VOLUME = 0.001;
 
 export enum PlayState {
+    /* The source is ready to be played */
+    READY,
+    /* The source has started playing */
     PLAYING,
+    /* The source has been stopped */
     STOPPED,
+    /* The source has reached the end of playback */
+    ENDED,
 }
 
 /**
@@ -129,7 +135,8 @@ class PlayableNode {
     private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
     private _destroy: boolean = false;
     private _rampTime: number = MIN_RAMP_TIME;
-    private _callback: ((state?: PlayState) => void) | undefined;
+    // @todo: Find out how costly this is to have per node
+    private _emitter: Emitter<[PlayState]> = new Emitter<[PlayState]>();
 
     /**
      * Constructs a PlayableNode.
@@ -145,8 +152,7 @@ class PlayableNode {
         this._audioManager = audioManager;
         this._source = src;
         this._gainNode.connect(_audioContext.destination);
-        // @todo: why is this necessary
-        this.stop = this.stop.bind(this);
+        this._emitter.notify(PlayState.READY);
     }
 
     /**
@@ -227,40 +233,40 @@ class PlayableNode {
                 throw 'playable-node: Invalid configuration for play()';
             }
         }
-        this._audioNode.addEventListener('ended', this.stop);
+        this._audioNode.addEventListener('ended', () => {
+            this._handleEndedEvent();
+            /* If node was stopped, isPlaying will be false already */
+            if(this._isPlaying) {
+                this._isPlaying = false;
+                this._emitter.notify(PlayState.ENDED)
+            }
+        });
         this._audioNode.start();
         this._isPlaying = true;
-        if (this._callback) {
-            this._callback(PlayState.PLAYING);
-        }
+        this._emitter.notify(PlayState.PLAYING);
     }
 
-    set listener(listener: (state?: PlayState) => void) {
-        this._callback = listener;
+    private _handleEndedEvent() {
+        if (this._audioNode) {
+            this._audioNode.disconnect();
+        }
+        if (this._pannerNode) {
+            this._pannerNode.disconnect();
+        }
+        if (this._destroy) {
+            this._audioManager._remove(this._source);
+            this._gainNode.disconnect();
+        }
     }
 
     /**
      * Stops the playback, and if set to destroy, removes associated audio file.
      */
     stop() {
-        if (this.isPlaying) {
-            this._audioNode.removeEventListener('ended', this.stop);
-            this._audioNode.stop();
-        }
-        if (this._audioNode !== undefined) {
-            this._audioNode.disconnect();
-        }
-        if (this._pannerNode !== undefined) {
-            this._pannerNode.disconnect();
-        }
-        this._isPlaying = false;
-        if (this._destroy) {
-            this._audioManager._remove(this._source);
-            this._gainNode.disconnect();
-        }
-        if (this._callback) {
-            this._callback(PlayState.STOPPED);
-        }
+        this._isPlaying = false
+        /* This triggers the 'ended' listener and frees the resources */
+        this._audioNode.stop();
+        this._emitter.notify(PlayState.STOPPED);
     }
 
     /**
@@ -287,6 +293,10 @@ class PlayableNode {
             /* Reset node volume to specified setting, avoiding rampTime */
             node['_gainNode'].gain.value = node.volume;
         }, duration * 1000);
+    }
+
+    get emitter(): Emitter<[PlayState]> {
+        return this._emitter;
     }
 
     /**
