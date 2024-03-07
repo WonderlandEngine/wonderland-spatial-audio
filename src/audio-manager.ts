@@ -3,9 +3,22 @@ import {Emitter} from '@wonderlandengine/api';
 
 /* Ramp times of 0 cause a click, 5 ms should be sufficient */
 const MIN_RAMP_TIME = 5 / 1000;
-/* Needed because WebAudio volumes don't accept 0 as valid volume */
+/* Needed because WebAudio ramp function doesn't accept 0 as valid volume */
 const MIN_VOLUME = 0.001;
 
+/**
+ * The PlayableNode emits PlayStates when its state changes.
+ *
+ * @example
+ * ```js
+ * this.audio.emitter.add((state) => {
+ *      console.log('Node state has changed');
+ *      if (state === PlayState.PLAYING) {
+ *          console.log('Node started playing');
+ *      }
+ * });
+ * ```
+ */
 export enum PlayState {
     /* The source is ready to be played */
     READY,
@@ -116,7 +129,7 @@ export class AudioManager {
  * @note Use the `destroy()` method if audio is not going to be used anymore, to avoid unused audio files
  * clogging up memory.
  */
-class PlayableNode {
+export class PlayableNode {
     /** Whether to loop the audio. */
     public loop: boolean = false;
 
@@ -236,9 +249,9 @@ class PlayableNode {
         this._audioNode.addEventListener('ended', () => {
             this._handleEndedEvent();
             /* If node was stopped, isPlaying will be false already */
-            if(this._isPlaying) {
+            if (this._isPlaying) {
                 this._isPlaying = false;
-                this._emitter.notify(PlayState.ENDED)
+                this._emitter.notify(PlayState.ENDED);
             }
         });
         this._audioNode.start();
@@ -263,7 +276,7 @@ class PlayableNode {
      * Stops the playback, and if set to destroy, removes associated audio file.
      */
     stop() {
-        this._isPlaying = false
+        this._isPlaying = false;
         /* This triggers the 'ended' listener and frees the resources */
         this._audioNode.stop();
         this._emitter.notify(PlayState.STOPPED);
@@ -329,6 +342,17 @@ class PlayableNode {
 
     get volume(): number {
         return this._volume;
+    }
+
+    updatePosition(dt: number, posVec: Float32Array, oriVec: Float32Array) {
+        if (!this._pannerNode) return;
+        const time = _audioContext.currentTime + dt;
+        this._pannerNode.positionX.linearRampToValueAtTime(posVec[0], time);
+        this._pannerNode.positionY.linearRampToValueAtTime(posVec[2], time);
+        this._pannerNode.positionZ.linearRampToValueAtTime(-posVec[1], time);
+        this._pannerNode.orientationX.linearRampToValueAtTime(oriVec[0], time);
+        this._pannerNode.orientationY.linearRampToValueAtTime(oriVec[2], time);
+        this._pannerNode.orientationZ.linearRampToValueAtTime(-oriVec[1], time);
     }
 
     /**

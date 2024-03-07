@@ -1,7 +1,7 @@
-import {Component, WonderlandEngine} from '@wonderlandengine/api';
+import {Component, Emitter, WonderlandEngine} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {_audioContext, AudioListener} from './audio-listener.js';
-import {globalAudioManager} from './audio-manager.js';
+import {globalAudioManager, PlayableNode, PlayState} from './audio-manager.js';
 
 /**
  * Constants
@@ -82,29 +82,16 @@ export class AudioSource extends Component {
     @property.float(0)
     coneOuterGain!: number;
 
-    private _pannerNode: PannerNode = new PannerNode(_audioContext);
-    private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
-    private _gainNode: GainNode = new GainNode(_audioContext);
-    private _audioBuffer: Promise<AudioBuffer> | undefined;
-    private _isPlaying = false;
     private _pannerOptions: PannerOptions = {};
-    private _time = 0;
     private _hrtf: boolean = true;
+    private _playableNode!: PlayableNode;
 
     /**
      * Initializes the audio src component.
      * If `autoplay` is enabled, the audio will start playing if the file is loaded.
      */
     async start() {
-        if (this.src === '') {
-            console.warn(`audio-source: No valid filename provided!`);
-            return;
-        }
-        this._gainNode = new GainNode(_audioContext, {
-            gain: this.volume,
-        });
-        this._gainNode.connect(_audioContext.destination);
-        this._audioBuffer = globalAudioManager._add(this.src);
+        this._playableNode = await globalAudioManager.load(this.src);
         if (this.autoplay) {
             this.play();
         }
@@ -116,63 +103,45 @@ export class AudioSource extends Component {
      * @note This function gets the implementation assigned in the `start()` method, depending on panning preferences.
      */
     async play() {
-        if (this._audioBuffer === undefined) return;
-        if (this.isPlaying) {
-            this.stop();
-        } else if (_audioContext.state === 'suspended') {
-            await globalAudioManager._unlockAudioContext();
-        }
-        this._audioNode = new AudioBufferSourceNode(_audioContext, {
-            buffer: await this._audioBuffer,
-            loop: this.loop,
-        });
+        const p = this._playableNode;
+        p.volume = this.volume;
+        p.loop = this.loop;
         /* "+0" is necessary here to allow backwards compatability with howler,
          * where spatial was either true or false */
         // @ts-ignore
         switch (this.spatial + 0) {
             case 0:
-                this._audioNode.connect(this._gainNode);
+                p.play();
                 break;
             case 1:
                 this._hrtf = false;
             /* Fallthrough is wanted here, since the steps are the same otherwise. */
             default:
                 this._updateSettings();
-                this._pannerNode = new PannerNode(_audioContext, this._pannerOptions);
-                this._audioNode.connect(this._pannerNode).connect(this._gainNode);
+                p.play(this._pannerOptions);
                 if (!this.isStationary) {
                     this.update = this._update.bind(this);
                 }
         }
-        this._gainNode.gain.value = this.volume;
-        this._audioNode.addEventListener('ended', this.stop);
-        this._audioNode.start();
-        this._isPlaying = true;
     }
 
     /**
      * Stops the audio associated with this audio src.
      */
     stop() {
-        if (this.isPlaying) {
-            this._audioNode.removeEventListener('ended', this.stop);
-            this._audioNode.stop();
-        }
-        if (this._audioNode !== undefined) {
-            this._audioNode.disconnect();
-        }
-        if (this._pannerNode !== undefined) {
-            this._pannerNode.disconnect();
-        }
+        this._playableNode.stop();
         this.update = undefined;
-        this._isPlaying = false;
     }
 
     /**
      * Checks if the audio src is currently playing.
      */
     get isPlaying(): boolean {
-        return this._isPlaying;
+        return this._playableNode.isPlaying;
+    }
+
+    get emitter(): Emitter<[PlayState]> {
+        return this._playableNode.emitter;
     }
 
     /**
@@ -183,9 +152,10 @@ export class AudioSource extends Component {
      * @warning Setting the rampTime to 0 will produce a click. To avoid this, specify at least 0.005 sec (5 ms).
      */
     changeVolumeDuringPlayback(v: number, rampTime: number) {
-        this.volume = v;
-        const time = _audioContext.currentTime + rampTime;
-        this._gainNode.gain.exponentialRampToValueAtTime(v, time);
+        const p = this._playableNode;
+        p.volumeRampTime = rampTime;
+        p.volume = v;
+        p.volumeRampTime = 0;
     }
 
     /**
@@ -194,17 +164,7 @@ export class AudioSource extends Component {
      * @param src Path to the audio file.
      * @warning Changing the src will stop current playback.
      */
-    // @todo: How do i write setters for wl properties?
-    changeSource(src: string) {
-        if (src === '') {
-            console.warn(`audio-source: No valid filename provided!`);
-            return;
-        }
-        if (this._isPlaying) this.stop();
-        globalAudioManager._remove(this.src);
-        this._audioBuffer = globalAudioManager._add(src);
-        this.src = src;
-    }
+    changeSource(src: string) {}
 
     /**
      * Called when the component is deactivated.
@@ -220,20 +180,13 @@ export class AudioSource extends Component {
      */
     onDestroy() {
         this.stop();
-        globalAudioManager._remove(this.src);
+        this._playableNode.destroy();
     }
 
     private _update(dt: number) {
         this.object.getPositionWorld(posVec);
         this.object.getForwardWorld(oriVec);
-
-        this._time = _audioContext.currentTime + dt;
-        this._pannerNode.positionX.linearRampToValueAtTime(posVec[0], this._time);
-        this._pannerNode.positionY.linearRampToValueAtTime(posVec[2], this._time);
-        this._pannerNode.positionZ.linearRampToValueAtTime(-posVec[1], this._time);
-        this._pannerNode.orientationX.linearRampToValueAtTime(oriVec[0], this._time);
-        this._pannerNode.orientationY.linearRampToValueAtTime(oriVec[2], this._time);
-        this._pannerNode.orientationZ.linearRampToValueAtTime(-oriVec[1], this._time);
+        this._playableNode.updatePosition(dt, posVec, oriVec);
     }
 
     private _updateSettings() {
