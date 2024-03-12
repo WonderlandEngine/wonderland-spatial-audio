@@ -174,7 +174,6 @@ export class PlayableNode {
      * context is in a 'suspended' state, it unlocks the audio context before starting
      * the playback.
      *
-     * @async
      * @param {Float32Array | PannerOptions} [config] - Optional configuration for audio playback.
      *     If not provided, the audio plays without panning.
      *     - If a Float32Array is provided, it is used as position coordinates for a PannerNode.
@@ -218,7 +217,7 @@ export class PlayableNode {
             buffer: this._audioBuffer,
             loop: this.loop,
         });
-        if (config === undefined) {
+        if (!config) {
             this._audioNode.connect(this._gainNode);
         } else {
             if (config instanceof Float32Array) {
@@ -276,6 +275,7 @@ export class PlayableNode {
      * Stops the playback, and if set to destroy, removes associated audio file.
      */
     stop() {
+        if (!this._isPlaying) return;
         this._isPlaying = false;
         /* This triggers the 'ended' listener and frees the resources */
         this._audioNode.stop();
@@ -306,6 +306,13 @@ export class PlayableNode {
             /* Reset node volume to specified setting, avoiding rampTime */
             node['_gainNode'].gain.value = node.volume;
         }, duration * 1000);
+    }
+
+    async changeSource(src: string) {
+        this.stop();
+        this._audioManager._remove(this._source);
+        this._audioBuffer = await this._audioManager._add(src);
+        this._source = src;
     }
 
     get emitter(): Emitter<[PlayState]> {
@@ -344,7 +351,11 @@ export class PlayableNode {
         return this._volume;
     }
 
-    updatePosition(dt: number, posVec: Float32Array, oriVec: Float32Array) {
+    updatePosition(
+        dt: number,
+        posVec: Float32Array,
+        oriVec: Float32Array = new Float32Array([0, 0, 1])
+    ) {
         if (!this._pannerNode) return;
         const time = _audioContext.currentTime + dt;
         this._pannerNode.positionX.linearRampToValueAtTime(posVec[0], time);

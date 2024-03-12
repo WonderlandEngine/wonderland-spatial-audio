@@ -1,7 +1,12 @@
 import {Component, Emitter, WonderlandEngine} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {_audioContext, AudioListener} from './audio-listener.js';
-import {globalAudioManager, PlayableNode, PlayState} from './audio-manager.js';
+import {
+    AudioManager,
+    globalAudioManager,
+    PlayableNode,
+    PlayState,
+} from './audio-manager.js';
 
 /**
  * Constants
@@ -9,6 +14,7 @@ import {globalAudioManager, PlayableNode, PlayState} from './audio-manager.js';
 const posVec = new Float32Array(3);
 const oriVec = new Float32Array(3);
 const distanceModels = ['linear', 'exponential', 'inverse'];
+const audioManager = new AudioManager();
 
 /**
  * Represents an audio src in the Wonderland Engine, allowing playback of audio files.
@@ -26,9 +32,8 @@ export class AudioSource extends Component {
     /** Path to the audio file that should be played. */
     @property.string()
     src!: string;
-    /**
-     * Maximum volume a src can have. From 0 to 1 (0% to 100%).
-     */
+
+    /** Volume of the audio source */
     @property.float(1.0)
     volume!: number;
 
@@ -83,7 +88,6 @@ export class AudioSource extends Component {
     coneOuterGain!: number;
 
     private _pannerOptions: PannerOptions = {};
-    private _hrtf: boolean = true;
     private _playableNode!: PlayableNode;
 
     /**
@@ -91,7 +95,8 @@ export class AudioSource extends Component {
      * If `autoplay` is enabled, the audio will start playing if the file is loaded.
      */
     async start() {
-        this._playableNode = await globalAudioManager.load(this.src);
+        this._playableNode = await audioManager.load(this.src);
+        this._playableNode.volume = this.volume;
         if (this.autoplay) {
             this.play();
         }
@@ -104,25 +109,40 @@ export class AudioSource extends Component {
      */
     async play() {
         const p = this._playableNode;
-        p.volume = this.volume;
         p.loop = this.loop;
-        /* "+0" is necessary here to allow backwards compatability with howler,
-         * where spatial was either true or false */
-        // @ts-ignore
-        switch (this.spatial + 0) {
-            case 0:
-                p.play();
-                break;
-            case 1:
-                this._hrtf = false;
-            /* Fallthrough is wanted here, since the steps are the same otherwise. */
-            default:
-                this._updateSettings();
-                p.play(this._pannerOptions);
-                if (!this.isStationary) {
-                    this.update = this._update.bind(this);
-                }
+        if (!this.spatial) {
+            p.play();
+            return;
         }
+        this._updateSettings();
+        p.play(this._pannerOptions);
+        if (!this.isStationary) {
+            this.update = this._update.bind(this);
+        }
+    }
+
+    async playWithCrossfadeTransition(node: AudioSource | PlayableNode, duration: number) {
+        const source = node instanceof AudioSource ? node['_playableNode'] : node;
+        const p = this._playableNode;
+        p.loop = this.loop;
+        if (!this.spatial) {
+            p.playWithCrossfadeTransition(source, duration);
+            return;
+        }
+        this._updateSettings();
+        p.playWithCrossfadeTransition(source, duration, this._pannerOptions);
+        if (this.isStationary) {
+            return;
+        }
+        if (node instanceof AudioSource) {
+            /* The update function still needs to be disabled after playback */
+            node.emitter.once((state) => {
+                if (state == (PlayState.ENDED || PlayState.STOPPED)) {
+                    node.stop();
+                }
+            });
+        }
+        this.update = this._update.bind(this);
     }
 
     /**
@@ -144,18 +164,12 @@ export class AudioSource extends Component {
         return this._playableNode.emitter;
     }
 
-    /**
-     * Sets the volume of this AudioSource gradually, while it is playing.
-     *
-     * @param v - Volume in float values 0.0 to 1.0.
-     * @param rampTime - Time until the volume has reached the specified value in seconds.
-     * @warning Setting the rampTime to 0 will produce a click. To avoid this, specify at least 0.005 sec (5 ms).
-     */
-    changeVolumeDuringPlayback(v: number, rampTime: number) {
-        const p = this._playableNode;
-        p.volumeRampTime = rampTime;
-        p.volume = v;
-        p.volumeRampTime = 0;
+    changeVolumeRampTime(t: number) {
+        this._playableNode.volumeRampTime = t;
+    }
+
+    changeVolume(v: number) {
+        this._playableNode.volume = v;
     }
 
     /**
@@ -164,7 +178,9 @@ export class AudioSource extends Component {
      * @param src Path to the audio file.
      * @warning Changing the src will stop current playback.
      */
-    changeSource(src: string) {}
+    async changeSource(src: string) {
+        await this._playableNode.changeSource(src);
+    }
 
     /**
      * Called when the component is deactivated.
@@ -200,7 +216,7 @@ export class AudioSource extends Component {
             maxDistance: this.maxDistance,
             refDistance: this.refDistance,
             rolloffFactor: this.rolloffFactor,
-            panningModel: this._hrtf ? 'HRTF' : 'equalpower',
+            panningModel: this.spatial == 2 ? 'HRTF' : 'equalpower',
             positionX: posVec[0],
             positionY: posVec[2],
             positionZ: -posVec[1],
