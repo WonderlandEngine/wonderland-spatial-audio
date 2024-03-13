@@ -5,6 +5,7 @@ import {Emitter} from '@wonderlandengine/api';
 const MIN_RAMP_TIME = 5 / 1000;
 /* Needed because WebAudio ramp function doesn't accept 0 as valid volume */
 const MIN_VOLUME = 0.001;
+const ONESHOT_CACHE_SIZE = 16;
 
 /**
  * The PlayableNode emits PlayStates when its state changes.
@@ -30,97 +31,10 @@ export enum PlayState {
     ENDED,
 }
 
-/**
- * AudioManager loads and manages audio files from which PlayableNodes are created.
- *
- * @example
- * ```js
- * async start() {
- *      this.audio = await audioManager.load('click.wav');
- * }
- * onPress() {
- *      this.audio.play();
- * }
- * // if not needed any longer
- * this.audio.destroy();
- * ```
- */
-export class AudioManager {
-    private _bufferCache: Map<string, [AudioBuffer, number]> = new Map();
-
-    /**
-     * Creates a PlayableNode from provided audio file.
-     *
-     * @param source Path to the file from which to create a PlayableNode.
-     */
-    async load(source: string): Promise<PlayableNode> {
-        return new PlayableNode(source, await this._add(source), this);
-    }
-
-    /**
-     * Adds the specified file to cache.
-     * @param source Path to the file that should be added to cache.
-     * @warning This is for internal use only, use at own risk!
-     */
-    async _add(source: string): Promise<AudioBuffer> {
-        if (this._bufferCache.has(source)) {
-            const [audioBuffer, referenceCount] = this._bufferCache.get(source)!;
-            this._bufferCache.set(source, [audioBuffer, referenceCount + 1]);
-            return audioBuffer;
-        }
-
-        const response = await fetch(source);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await _audioContext.decodeAudioData(arrayBuffer);
-
-        this._bufferCache.set(source, [audioBuffer, 1]);
-        return audioBuffer;
-    }
-
-    /**
-     * Removes the specified file from cache.
-     *
-     * @param source Path to the file that should be evicted from cache.
-     * @warning This is for internal use only, use at own risk!
-     */
-    _remove(source: string) {
-        if (!this._bufferCache.has(source)) {
-            return;
-        }
-        const [, referenceCount] = this._bufferCache.get(source)!;
-        if (referenceCount > 1) {
-            const [audioBuffer, referenceCount] = this._bufferCache.get(source)!;
-            this._bufferCache.set(source, [audioBuffer, referenceCount - 1]);
-        } else {
-            this._bufferCache.delete(source);
-        }
-    }
-
-    /**
-     * Unlocks the WebAudio AudioContext.
-     *
-     * @returns a promise that fulfills when the audioContext resumes.
-     * @note WebAudio AudioContext only resumes on user interaction.
-     * @warning This is for internal use only, use at own risk!
-     */
-    async _unlockAudioContext(): Promise<void> {
-        return new Promise<void>((resolve) => {
-            const unlockHandler = () => {
-                _audioContext.resume().then(() => {
-                    window.removeEventListener('click', unlockHandler);
-                    window.removeEventListener('touch', unlockHandler);
-                    window.removeEventListener('keydown', unlockHandler);
-                    window.removeEventListener('mousedown', unlockHandler);
-                    resolve();
-                });
-            };
-
-            window.addEventListener('click', unlockHandler);
-            window.addEventListener('touch', unlockHandler);
-            window.addEventListener('keydown', unlockHandler);
-            window.addEventListener('mousedown', unlockHandler);
-        });
-    }
+export enum AudioType {
+    SFX,
+    MUSIC,
+    MASTER,
 }
 
 /**
@@ -136,9 +50,8 @@ export class PlayableNode {
     /** Whether to enable HRTF over regular panning. */
     public HRTF: boolean = false;
 
-    private _audioBuffer: AudioBuffer;
-    private _audioManager: AudioManager;
-    private _source: string;
+    private _audioBuffers: AudioBuffer[];
+    private _audioMixer: AudioManager;
     private _isPlaying: boolean = false;
     private _volume: number = 1.0;
     private _gainNode: GainNode = new GainNode(_audioContext, {
@@ -148,7 +61,6 @@ export class PlayableNode {
     private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
     private _destroy: boolean = false;
     private _rampTime: number = MIN_RAMP_TIME;
-    // @todo: Find out how costly this is to have per node
     private _emitter: Emitter<[PlayState]> = new Emitter<[PlayState]>();
 
     /**
@@ -156,15 +68,22 @@ export class PlayableNode {
      *
      * @warning This is for internal use only. PlayableNode's should only be created via the AudioManager's `load()`
      * function.
-     * @param src Path to the audio file.
-     * @param audioBuffer Buffer of the decoded src.
      * @param audioManager Manager that created the associated AudioBuffer.
      */
-    constructor(src: string, audioBuffer: AudioBuffer, audioManager: AudioManager) {
-        this._audioBuffer = audioBuffer;
-        this._audioManager = audioManager;
-        this._source = src;
+    constructor(audioBuffers: AudioBuffer[], audioMixer: AudioManager, type: AudioType) {
+        this._audioBuffers = audioBuffers;
+        this._audioMixer = audioMixer;
         this._gainNode.connect(_audioContext.destination);
+        switch (type) {
+            case AudioType.MUSIC:
+                this._gainNode.connect(audioMixer['_musicGain']);
+                break;
+            case AudioType.SFX:
+                this._gainNode.connect(audioMixer['_sfxGain']);
+                break;
+            default:
+                this._gainNode.connect(audioMixer['_masterGain']);
+        }
         this._emitter.notify(PlayState.READY);
     }
 
@@ -211,10 +130,11 @@ export class PlayableNode {
         if (this._isPlaying) {
             this.stop();
         } else if (_audioContext.state === 'suspended') {
-            await this._audioManager._unlockAudioContext();
+            await this._audioMixer._unlockAudioContext();
         }
+        const randomIndex = Math.floor(Math.random() * this._audioBuffers.length);
         this._audioNode = new AudioBufferSourceNode(_audioContext, {
-            buffer: this._audioBuffer,
+            buffer: this._audioBuffers[randomIndex],
             loop: this.loop,
         });
         if (!config) {
@@ -265,10 +185,6 @@ export class PlayableNode {
         if (this._pannerNode) {
             this._pannerNode.disconnect();
         }
-        if (this._destroy) {
-            this._audioManager._remove(this._source);
-            this._gainNode.disconnect();
-        }
     }
 
     /**
@@ -308,11 +224,9 @@ export class PlayableNode {
         }, duration * 1000);
     }
 
-    async changeSource(src: string) {
+    async changeBuffers(buffers: AudioBuffer[]) {
         this.stop();
-        this._audioManager._remove(this._source);
-        this._audioBuffer = await this._audioManager._add(src);
-        this._source = src;
+        this._audioBuffers = buffers;
     }
 
     get emitter(): Emitter<[PlayState]> {
@@ -373,7 +287,6 @@ export class PlayableNode {
         if (this._isPlaying) {
             this._destroy = true;
         } else {
-            this._audioManager._remove(this._source);
             this._gainNode.disconnect();
         }
 
@@ -381,7 +294,231 @@ export class PlayableNode {
     }
 }
 
-export const globalAudioManager = new AudioManager();
+class OneShotNode {
+    private _audioNode: AudioBufferSourceNode = new AudioBufferSourceNode(_audioContext);
+    private _gainNode: GainNode = new GainNode(_audioContext);
+    private _pannerNode: PannerNode | undefined;
+    private _isPlaying = false;
+
+    constructor(audioMixer: AudioManager) {
+        this._gainNode.connect(audioMixer['_sfxGain']);
+    }
+
+    async play(
+        audioBuffer: AudioBuffer,
+        vol: number,
+        config?: Float32Array | PannerOptions
+    ): Promise<void> {
+        if (this._isPlaying) {
+            console.log("node was stopped");
+            this.stop();
+        }
+        this._gainNode.gain.value = vol;
+        this._audioNode = new AudioBufferSourceNode(_audioContext, {
+            buffer: audioBuffer,
+        });
+        if (!config) {
+            this._audioNode.connect(this._gainNode);
+        } else {
+            if (config instanceof Float32Array) {
+                this._pannerNode = new PannerNode(_audioContext, {
+                    coneInnerAngle: 360,
+                    coneOuterAngle: 0,
+                    coneOuterGain: 0,
+                    distanceModel: 'exponential' as DistanceModelType,
+                    maxDistance: 10000,
+                    refDistance: 1.0,
+                    rolloffFactor: 1.0,
+                    panningModel: 'HRTF',
+                    positionX: config![0],
+                    positionY: config![2],
+                    positionZ: -config![1],
+                    orientationX: 0,
+                    orientationY: 0,
+                    orientationZ: 1,
+                });
+                this._audioNode.connect(this._pannerNode!).connect(this._gainNode);
+            } else if (isPannerOptions(config)) {
+                this._pannerNode = new PannerNode(_audioContext, config as PannerOptions);
+                this._audioNode.connect(this._pannerNode!).connect(this._gainNode);
+            } else {
+                throw 'playable-node: Invalid configuration for play()';
+            }
+        }
+        this._audioNode.addEventListener('ended', () => {
+            this._handleEndedEvent();
+            /* If node was stopped, isPlaying will be false already */
+            this._isPlaying = false;
+        });
+        this._audioNode.start();
+        this._isPlaying = true;
+    }
+
+    private _handleEndedEvent() {
+        if (this._audioNode) {
+            this._audioNode.disconnect();
+        }
+        if (this._pannerNode) {
+            this._pannerNode.disconnect();
+        }
+    }
+
+    stop() {
+        if (!this._isPlaying) return;
+        /* This triggers the 'ended' listener and frees the resources */
+        this._audioNode.stop();
+    }
+
+    get isPlaying() {
+        return this._isPlaying;
+    }
+}
+
+export class AudioManager {
+    private _bufferCache = new Map<number, AudioBuffer[]>();
+    private _masterGain: GainNode = new GainNode(_audioContext);
+    private _musicGain: GainNode = new GainNode(_audioContext);
+    private _sfxGain: GainNode = new GainNode(_audioContext);
+    private _oneShotNodes: OneShotNode[] = [];
+    private _playableNodes = new Map<number, PlayableNode>();
+    private _nodePointer = 0;
+
+    constructor() {
+        this._sfxGain.connect(this._masterGain);
+        this._musicGain.connect(this._masterGain);
+        this._masterGain.connect(_audioContext.destination);
+
+        /* Initialize the one shot cache */
+        for (let i = 0; i < ONESHOT_CACHE_SIZE; i++) {
+            this._oneShotNodes[i] = new OneShotNode(this);
+        }
+    }
+
+    async load(path: string[], id: number, type = AudioType.SFX) {
+        if (!this._bufferCache.has(id)) {
+            this._bufferCache.set(id, []);
+        }
+        for (let i = 0; i < path.length; i++) {
+            console.log(path[i]);
+            const response = await fetch(path[i]);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await _audioContext.decodeAudioData(arrayBuffer);
+            this._bufferCache.get(id)!.push(audioBuffer);
+        }
+
+        if (type === AudioType.SFX) return;
+
+        /* All non-sfx audio types will get a playable instance immediately */
+        if (!this._playableNodes.has(id)) {
+            const node = new PlayableNode(this._bufferCache.get(id)!, this, type);
+            this._playableNodes.set(id, node);
+        } else {
+            this._playableNodes.get(id)!.changeBuffers(this._bufferCache.get(id)!);
+        }
+    }
+
+    async play(id: number, config?: Float32Array | PannerOptions) {
+        if (!this._bufferCache.has(id)) {
+            throw 'audio-mixer: No idenfier with number: ' + id + ' found!';
+        }
+        if (this._playableNodes.has(id)) {
+            this._playableNodes.get(id)!.play(config);
+            return;
+        }
+        const node = new PlayableNode(this._bufferCache.get(id)!, this, AudioType.SFX);
+        this._playableNodes.set(id, node);
+        console.log(config)
+        node.play(config);
+    }
+
+    async playOneShot(id: number, vol: number, config?: Float32Array | PannerOptions) {
+        if (!this._bufferCache.has(id)) return;
+        const buffers = this._bufferCache.get(id)!;
+        const randomIndex = Math.floor(Math.random() * buffers.length);
+        await this._oneShotNodes[this._nodePointer].play(buffers[randomIndex], vol, config);
+        /* Advance node pointer */
+        this._nodePointer = (this._nodePointer + 1) % ONESHOT_CACHE_SIZE;
+    }
+
+    stop(id: number) {
+        if (!this._playableNodes.has(id)) return;
+        this._playableNodes.get(id)!.stop();
+    }
+
+
+    stopOneShots() {
+        for (const node of this._oneShotNodes) {
+            node.stop();
+        }
+    }
+
+    stopAll() {
+        /* Stop all currently playing one shot nodes */
+        for (const node of this._oneShotNodes) {
+            node.stop();
+        }
+        this._playableNodes.forEach((value) => {
+            value.stop();
+        });
+    }
+
+    setMasterVolume(v: number, t = 0) {
+        const volume = Math.max(MIN_VOLUME, v);
+        const time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, t);
+        this._masterGain.gain.linearRampToValueAtTime(volume, time);
+    }
+
+    setSfxVolume(v: number, t = 0) {
+        const volume = Math.max(MIN_VOLUME, v);
+        const time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, t);
+        this._sfxGain.gain.linearRampToValueAtTime(volume, time);
+    }
+    setMusicVolume(v: number, t = 0) {
+        const volume = Math.max(MIN_VOLUME, v);
+        const time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, t);
+        this._musicGain.gain.linearRampToValueAtTime(volume, time);
+    }
+
+    getPlayableNode(id: number): PlayableNode {
+        if (!this._playableNodes.has(id)) {
+            throw 'audio-manager: No such ID found!';
+        }
+        return this._playableNodes.get(id)!;
+    }
+
+    /**
+     * Unlocks the WebAudio AudioContext.
+     *
+     * @returns a promise that fulfills when the audioContext resumes.
+     * @note WebAudio AudioContext only resumes on user interaction.
+     * @warning This is for internal use only, use at own risk!
+     */
+    async _unlockAudioContext(): Promise<void> {
+        return new Promise<void>((resolve) => {
+            const unlockHandler = () => {
+                _audioContext.resume().then(() => {
+                    window.removeEventListener('click', unlockHandler);
+                    window.removeEventListener('touch', unlockHandler);
+                    window.removeEventListener('keydown', unlockHandler);
+                    window.removeEventListener('mousedown', unlockHandler);
+                    resolve();
+                });
+            };
+
+            window.addEventListener('click', unlockHandler);
+            window.addEventListener('touch', unlockHandler);
+            window.addEventListener('keydown', unlockHandler);
+            window.addEventListener('mousedown', unlockHandler);
+        });
+    }
+}
+
+let globalAudioManager: AudioManager = null!;
+if (window.AudioContext !== undefined) {
+    globalAudioManager = new AudioManager();
+}
+
+export {globalAudioManager};
 
 function isPannerOptions(obj: any): obj is PannerOptions {
     return (

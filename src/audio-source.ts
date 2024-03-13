@@ -14,7 +14,6 @@ import {
 const posVec = new Float32Array(3);
 const oriVec = new Float32Array(3);
 const distanceModels = ['linear', 'exponential', 'inverse'];
-const audioManager = new AudioManager();
 
 /**
  * Represents an audio src in the Wonderland Engine, allowing playback of audio files.
@@ -95,7 +94,8 @@ export class AudioSource extends Component {
      * If `autoplay` is enabled, the audio will start playing if the file is loaded.
      */
     async start() {
-        this._playableNode = await audioManager.load(this.src);
+        await globalAudioManager.load([this.src], this._id); // @todo: Add type
+        this._playableNode = globalAudioManager.getPlayableNode(this._id);
         this._playableNode.volume = this.volume;
         if (this.autoplay) {
             this.play();
@@ -170,16 +170,6 @@ export class AudioSource extends Component {
 
     changeVolume(v: number) {
         this._playableNode.volume = v;
-    }
-
-    /**
-     * Sets a new audio src.
-     *
-     * @param src Path to the audio file.
-     * @warning Changing the src will stop current playback.
-     */
-    async changeSource(src: string) {
-        await this._playableNode.changeSource(src);
     }
 
     /**
