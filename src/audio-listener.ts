@@ -3,8 +3,8 @@ import {Component} from '@wonderlandengine/api';
 const SAMPLE_RATE = 48000;
 /* 5ms for now, so it definitely takes less than one frame */
 const FADE_DURATION = 5 / 1000;
-const tempVec: Float32Array = new Float32Array(3);
-const tempVec2: Float32Array = new Float32Array(3);
+const tempVec = new Float32Array(3);
+const tempVec2 = new Float32Array(3);
 
 /**
  * Variables
@@ -63,7 +63,7 @@ export class AudioListener extends Component {
     /**
      * The time in which the last position update will be done.
      */
-    private time: number = 0;
+    private time = 0;
 
     start() {
         /* Check if recommended functions are supported */
