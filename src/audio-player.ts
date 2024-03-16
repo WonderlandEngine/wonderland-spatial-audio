@@ -1,19 +1,15 @@
 /**
- * @note This file is not intended to be exported to the user!
+ * This file is not intended to be exported to the user!
  */
 import {_audioContext} from './audio-listener.js';
-import {
-    Channel,
-    AudioManager,
-    DEF_VOL,
-    PlayConfig,
-    PlayState,
-} from './audio-manager.js';
+import {Channel, AudioManager, PlayConfig, PlayState} from './audio-manager.js';
 
 /* Ramp times of 0 cause a click, 5 ms should be sufficient */
 export const MIN_RAMP_TIME = 5 / 1000;
 /* Needed because WebAudio ramp function doesn't accept 0 as valid volume */
 export const MIN_VOLUME = 0.001;
+
+export const DEF_VOL = 1.0;
 
 const DEFAULT_PANNER_CONFIG: PannerOptions = {
     coneInnerAngle: 360,
@@ -32,7 +28,7 @@ const DEFAULT_PANNER_CONFIG: PannerOptions = {
     orientationZ: 1,
 };
 
-export class PlayableNode {
+class PlayableNode {
     public _gainNode = new GainNode(_audioContext);
     public _pannerNode = new PannerNode(_audioContext, DEFAULT_PANNER_CONFIG);
     public _audioNode = new AudioBufferSourceNode(_audioContext);
@@ -58,9 +54,8 @@ export class BufferPlayer extends PlayableNode {
     /**
      * Constructs a BufferPlayer.
      *
-     * @warning This is for internal use only. BufferPlayer's should only be created via the AudioManager's `load()`
-     * function.
-     * @param audioManager Manager that created the associated AudioBuffer.
+     * @warning This is for internal use only. BufferPlayer's should only be created and used inside the AudioManager.
+     * @param audioManager Manager that manages this player.
      */
     constructor(audioManager: AudioManager) {
         super();
@@ -69,7 +64,7 @@ export class BufferPlayer extends PlayableNode {
 
     play(audioBuffers: AudioBuffer[], id: number, config?: PlayConfig) {
         if (this._isPlaying) {
-            this.stop();
+            this.stop(); //@todo: Does this need to free?
         }
         this.bufferId = id;
         switch (config?.audioChannel) {
@@ -103,11 +98,17 @@ export class BufferPlayer extends PlayableNode {
         this._isPlaying = true;
     }
 
+    /**
+     * Same as stop() but additionally calls free on the audio manager, so that it is available again.
+     */
     stopAndFree() {
         this.stop();
         this._audioManager._freeUpBusyPlayer(this.bufferId);
     }
 
+    /**
+     * Stops current playback and sends notification on the audio managers emitter.
+     */
     stop() {
         if (!this._isPlaying) return;
         this._reset();
@@ -116,7 +117,7 @@ export class BufferPlayer extends PlayableNode {
     }
 }
 
-export class OneShotNode extends PlayableNode {
+export class OneShotPlayer extends PlayableNode {
     constructor(private _audioManager: AudioManager) {
         super();
         this._gainNode.connect(_audioManager['_sfxGain']);
