@@ -1,6 +1,6 @@
 import {Component, Emitter, WonderlandEngine} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
-import {_audioContext, AudioListener} from './audio-listener.js';
+import {_audioContext, AudioListener, unlockAudioContext} from './audio-listener.js';
 import {Channel, AudioManager, PlayState} from './audio-manager.js';
 import {MIN_RAMP_TIME, MIN_VOLUME} from './audio-player.js';
 
@@ -50,32 +50,6 @@ function removeBufferFromCache(source: string) {
     } else {
         bufferCache.delete(source);
     }
-}
-
-/**
- * Unlocks the WebAudio AudioContext.
- *
- * @returns a promise that fulfills when the audioContext resumes.
- * @note WebAudio AudioContext only resumes on user interaction.
- * @warning This is for internal use only, use at own risk!
- */
-async function unlockAudioContext(): Promise<void> {
-    return new Promise<void>((resolve) => {
-        const unlockHandler = () => {
-            _audioContext.resume().then(() => {
-                window.removeEventListener('click', unlockHandler);
-                window.removeEventListener('touch', unlockHandler);
-                window.removeEventListener('keydown', unlockHandler);
-                window.removeEventListener('mousedown', unlockHandler);
-                resolve();
-            });
-        };
-
-        window.addEventListener('click', unlockHandler);
-        window.addEventListener('touch', unlockHandler);
-        window.addEventListener('keydown', unlockHandler);
-        window.addEventListener('mousedown', unlockHandler);
-    });
 }
 
 /**

@@ -20,6 +20,32 @@ if (window.AudioContext !== undefined) {
 export {_audioContext};
 
 /**
+ * Unlocks the WebAudio AudioContext.
+ *
+ * @returns a promise that fulfills when the audioContext resumes.
+ * @note WebAudio AudioContext only resumes on user interaction.
+ * @warning This is for internal use only, use at own risk!
+ */
+export async function unlockAudioContext(): Promise<void> {
+    return new Promise<void>((resolve) => {
+        const unlockHandler = () => {
+            _audioContext.resume().then(() => {
+                window.removeEventListener('click', unlockHandler);
+                window.removeEventListener('touch', unlockHandler);
+                window.removeEventListener('keydown', unlockHandler);
+                window.removeEventListener('mousedown', unlockHandler);
+                resolve();
+            });
+        };
+
+        window.addEventListener('click', unlockHandler);
+        window.addEventListener('touch', unlockHandler);
+        window.addEventListener('keydown', unlockHandler);
+        window.addEventListener('mousedown', unlockHandler);
+    });
+}
+
+/**
  * Represents a Wonderland audio listener component.
  * Updates the position and orientation of a WebAudio listener instance.
  *

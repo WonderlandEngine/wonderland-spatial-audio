@@ -1,4 +1,4 @@
-import {_audioContext} from './audio-listener.js';
+import {_audioContext, unlockAudioContext} from './audio-listener.js';
 import {Emitter} from '@wonderlandengine/api';
 import {BufferPlayer, MIN_RAMP_TIME, MIN_VOLUME, OneShotNode} from './audio-player.js';
 
@@ -101,7 +101,7 @@ export class AudioManager {
         player.stop();
         this._busyPlayers.set(id, player);
         if (_audioContext.state === 'suspended') {
-            await this._unlockAudioContext();
+            await unlockAudioContext();
         }
         player.play(buffer, id, config);
         this.emitter.notify({id: id, state: PlayState.PLAYING});
@@ -162,32 +162,6 @@ export class AudioManager {
             this._busyPlayers.delete(id);
             this._freePlayers.push(player);
         }
-    }
-
-    /**
-     * Unlocks the WebAudio AudioContext.
-     *
-     * @returns a promise that fulfills when the audioContext resumes.
-     * @note WebAudio AudioContext only resumes on user interaction.
-     * @warning This is for internal use only, use at own risk!
-     */
-    async _unlockAudioContext(): Promise<void> {
-        return new Promise<void>((resolve) => {
-            const unlockHandler = () => {
-                _audioContext.resume().then(() => {
-                    window.removeEventListener('click', unlockHandler);
-                    window.removeEventListener('touch', unlockHandler);
-                    window.removeEventListener('keydown', unlockHandler);
-                    window.removeEventListener('mousedown', unlockHandler);
-                    resolve();
-                });
-            };
-
-            window.addEventListener('click', unlockHandler);
-            window.addEventListener('touch', unlockHandler);
-            window.addEventListener('keydown', unlockHandler);
-            window.addEventListener('mousedown', unlockHandler);
-        });
     }
 
     get amountOfFreePlayers() {
