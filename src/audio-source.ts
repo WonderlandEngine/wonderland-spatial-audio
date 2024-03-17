@@ -69,7 +69,13 @@ export class AudioSource extends Component {
     @property.string()
     src!: string;
 
-    /** Volume of the audio source */
+    /**
+     * Volume of the audio source.
+     *
+     * @note This will only take effect audio that has not started playing yet. Is the audio already playing, use
+     * setVolumeDuringPlayback()
+     * @see setVolumeDuringPlayback
+     */
     @property.float(1.0)
     volume!: number;
 
