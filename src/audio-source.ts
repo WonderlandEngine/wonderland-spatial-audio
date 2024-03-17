@@ -241,6 +241,17 @@ export class AudioSource extends Component {
     }
 
     /**
+     * Change out the source.
+     *
+     * @param path Path to the audio file.
+     */
+    async changeAudioSource(path: string) {
+        this._buffer = await addBufferToCache(path);
+        removeBufferFromCache(this.src);
+        this.src = path;
+    }
+
+    /**
      * Called when the component is deactivated.
      * Stops the audio playback.
      */
