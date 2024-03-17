@@ -6,7 +6,7 @@ import {
     MIN_RAMP_TIME,
     MIN_VOLUME,
     OneShotPlayer,
-} from './audio-player.js';
+} from './audio-players.js';
 
 /**
  * Enumerates the available channels within the AudioManager.
@@ -53,7 +53,7 @@ export type PlayConfig = {
     /** Sets the volume of the player (0-1) */
     volume?: number;
     /** Whether to loop the audio */
-    loop?: boolean
+    loop?: boolean;
     /**
      * Sets the position of the audio source and makes it spatial.
      *
@@ -61,12 +61,13 @@ export type PlayConfig = {
      */
     position?: Float32Array;
     /** Sets the channel on which the audio will be played */
-    audioChannel?: Channel;
+    channel?: Channel;
 };
 
 /**
  * Default number of one-shot players.
- * @todo: Question for Timmy: From your experience, how many oneshots/regular stuff (loops, music, etc) do you typically
+ * @todo: Question for Timmy: From your experience, how many one-shots/regular stuff (loops, music, etc) do you
+ * typically
  * need?
  */
 export const DEF_ONESHT_PLR_COUNT = 16;
@@ -224,7 +225,7 @@ export class AudioManager {
      *
      * @note Is the given ID already playing, it will restart its playback.
      * @param id ID of the file that should be played.
-     * @param config Optional parameter that will configure how the audio is played. Is on configuration provided,
+     * @param config Optional parameter that will configure how the audio is played. Is no configuration provided,
      * the audio will play at volume 1.0, without panning and on the MASTER channel.
      * @throws If the given ID does not have a buffer associated with it, or all players are currently occupied.
      */
@@ -306,15 +307,15 @@ export class AudioManager {
     /**
      * Sets the volume of the given audio channel.
      *
-     * @param type Specifies the audio channel type that should be modified.
+     * @param channel Specifies the audio channel type that should be modified.
      * @param v Volume that the channel should be set to.
      * @param t Optional time parameter that specifies the time it takes for the channel to reach the specified
      * volume in seconds (Default is 0).
      */
-    setGlobalVolume(type: Channel, v: number, t = 0) {
+    setGlobalVolume(channel: Channel, v: number, t = 0) {
         const volume = Math.max(MIN_VOLUME, v);
         const time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, t);
-        switch (type) {
+        switch (channel) {
             case Channel.MUSIC:
                 this._musicGain.gain.linearRampToValueAtTime(volume, time);
                 break;

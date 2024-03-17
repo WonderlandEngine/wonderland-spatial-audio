@@ -2,7 +2,7 @@ import {Component, Emitter, WonderlandEngine} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {_audioContext, AudioListener, unlockAudioContext} from './audio-listener.js';
 import {Channel, AudioManager, PlayState} from './audio-manager.js';
-import {MIN_RAMP_TIME, MIN_VOLUME} from './audio-player.js';
+import {MIN_RAMP_TIME, MIN_VOLUME} from './audio-players.js';
 
 /**
  * Constants
@@ -83,6 +83,10 @@ export class AudioSource extends Component {
 
     /** Select the panning method.
      *
+     * @note When setting this in code, use numbers or boolean values!
+     * - 0 / false, for no panning.
+     * - 1 / true, for regular panning.
+     * - 2 for HRTF spatial audio.
      * @warning Enabling HRTF (Head-Related Transfer Function) is computationally more intensive than regular panning!
      */
     @property.enum(['none', 'panning', 'hrtf'], 1)
@@ -123,6 +127,10 @@ export class AudioSource extends Component {
     @property.float(0)
     coneOuterGain!: number;
 
+    /**
+     * The emitter will notify all subscribers when a state change occurs.
+     * @see PlayState
+     */
     readonly emitter = new Emitter<[PlayState]>();
 
     private _pannerOptions: PannerOptions = {};
@@ -136,7 +144,9 @@ export class AudioSource extends Component {
 
     /**
      * Initializes the audio src component.
-     * If `autoplay` is enabled, the audio will start playing if the file is loaded.
+     * If `autoplay` is enabled, the audio will start playing as soon as the file is loaded.
+     *
+     * @throws If no audio source path was provided.
      */
     async start() {
         if (this.src === '') {
@@ -168,7 +178,7 @@ export class AudioSource extends Component {
     /**
      * Plays the audio associated with this audio src.
      *
-     * @note This function gets the implementation assigned in the `start()` method, depending on panning preferences.
+     * @note Is this audio-source currently playing, playback will be stopped.
      */
     async play() {
         if (this._isPlaying) {
@@ -218,6 +228,12 @@ export class AudioSource extends Component {
         return this._isPlaying;
     }
 
+    /**
+     * Changes the volume during playback.
+     * @param v Volume that source should have.
+     * @param t Optional parameter that specifies the time it takes for the volume to reach its specified value in
+     * seconds (Default is 0).
+     */
     setVolumeDuringPlayback(v: number, t = 0) {
         const volume = Math.max(MIN_VOLUME, v);
         const time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, t);
@@ -234,7 +250,7 @@ export class AudioSource extends Component {
 
     /**
      * Called when the component is destroyed.
-     * Stops the audio playback and removes the src from the AudioManager.
+     * Stops the audio playback and removes the src from cache.
      */
     onDestroy() {
         this.stop();

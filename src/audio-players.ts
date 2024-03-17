@@ -67,7 +67,7 @@ export class BufferPlayer extends PlayableNode {
             this.stop(); //@todo: Does this need to free?
         }
         this.bufferId = id;
-        switch (config?.audioChannel) {
+        switch (config?.channel) {
             case Channel.MUSIC:
                 this._gainNode.connect(this._audioManager['_musicGain']);
                 break;
@@ -118,9 +118,17 @@ export class BufferPlayer extends PlayableNode {
 }
 
 export class OneShotPlayer extends PlayableNode {
-    constructor(private _audioManager: AudioManager) {
+    private readonly _audioManager: AudioManager;
+    /**
+     * Constructs a OneShotPlayer.
+     *
+     * @warning This is for internal use only. OneShotPlayers's should only be created and used inside the AudioManager.
+     * @param audioManager Manager that manages this player.
+     */
+    constructor(audioManager: AudioManager) {
         super();
-        this._gainNode.connect(_audioManager['_sfxGain']);
+        this._audioManager = audioManager;
+        this._gainNode.connect(this._audioManager['_sfxGain']);
     }
 
     async play(
