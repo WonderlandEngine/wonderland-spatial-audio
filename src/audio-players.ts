@@ -1,6 +1,3 @@
-/**
- * This file is not intended to be exported to the user!
- */
 import {_audioContext} from './audio-listener.js';
 import {Channel, AudioManager, PlayConfig, PlayState} from './audio-manager.js';
 
@@ -64,7 +61,7 @@ export class BufferPlayer extends PlayableNode {
 
     play(audioBuffers: AudioBuffer[], id: number, config?: PlayConfig) {
         if (this._isPlaying) {
-            this.stop(); //@todo: Does this need to free?
+            this.stop();
         }
         this.bufferId = id;
         switch (config?.channel) {

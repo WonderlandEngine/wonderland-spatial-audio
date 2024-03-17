@@ -96,7 +96,8 @@ export const DEF_PLR_COUNT = 16;
  *      GunShot,
  * }
  *
- * const am = new AudioManager();
+ * // AudioManager can't be constructed in a non-browser environment!
+ * export const am = window.AudioContext ? new AudioManager() : null;
  *
  * start() {
  *      am.load('path/to/click.wav', Sounds.Click);
@@ -132,14 +133,14 @@ export class AudioManager {
     private _bufferCache = new Map<number, AudioBuffer[]>();
 
     /* Simple, fast cache for one-shot nodes */
-    private readonly _oneShotCache: ReadonlyArray<OneShotPlayer>;
+    private readonly _oneShotCache!: ReadonlyArray<OneShotPlayer>;
     private _oneShotIndex = 0;
 
     /* Cache for regular nodes */
     private _freePlayers: BufferPlayer[] = [];
     private _busyPlayers = new Map<number, BufferPlayer>();
 
-    private readonly _oneShotCacheSize: number;
+    private readonly _oneShotCacheSize!: number;
     private readonly _masterGain = new GainNode(_audioContext);
     private readonly _musicGain = new GainNode(_audioContext);
     private readonly _sfxGain = new GainNode(_audioContext);
@@ -174,6 +175,12 @@ export class AudioManager {
      *
      * @param oneShotPlayerCount Optional parameter that specifies the amount of one-shot players.
      * @param playerCount Optional parameter that specifies the amount of regular players.
+     *
+     * @example
+     * ```js
+     * // AudioManager can't be constructed in a non-browser environment!
+     * export const am = window.AudioContext ? new AudioManager() : null;
+     * ```
      */
     constructor(oneShotPlayerCount = DEF_ONESHT_PLR_COUNT, playerCount = DEF_PLR_COUNT) {
         this._sfxGain.connect(this._masterGain);
@@ -379,9 +386,4 @@ export class AudioManager {
 // @todo: Question for Timmy: Not sure if we need to give the user a instance or not. What do you think? It would
 //  kind of defeat the purpose of having it configurable in the first place. Or should we come up with reasonable
 //  defaults and make it not configurable at all?
-let globalAudioManager: AudioManager = null!;
-if (window.AudioContext !== undefined) {
-    globalAudioManager = new AudioManager();
-}
-
-export {globalAudioManager};
+export const globalAudioManager = window.AudioContext ? new AudioManager() : null;
