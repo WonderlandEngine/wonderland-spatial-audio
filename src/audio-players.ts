@@ -45,7 +45,7 @@ class PlayableNode {
 }
 
 export class BufferPlayer extends PlayableNode {
-    private bufferId: number = -1;
+    public bufferId = -1;
     private readonly _audioManager: AudioManager;
 
     /**

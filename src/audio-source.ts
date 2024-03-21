@@ -4,6 +4,12 @@ import {_audioContext, AudioListener, unlockAudioContext} from './audio-listener
 import {Channel, AudioManager, PlayState} from './audio-manager.js';
 import {MIN_RAMP_TIME, MIN_VOLUME} from './audio-players.js';
 
+export enum PanningType {
+    NONE,
+    REGULAR,
+    HRTF,
+}
+
 /**
  * Constants
  */
@@ -96,7 +102,7 @@ export class AudioSource extends Component {
      * @warning Enabling HRTF (Head-Related Transfer Function) is computationally more intensive than regular panning!
      */
     @property.enum(['none', 'panning', 'hrtf'], 1)
-    spatial!: number;
+    spatial!: PanningType;
 
     /**
      * Set this property if the object will never move.

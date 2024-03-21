@@ -77,6 +77,8 @@ export const DEF_ONESHT_PLR_COUNT = 16;
  */
 export const DEF_PLR_COUNT = 16;
 
+const MAX_NUMBER_OF_INSTANCES = (1 << 16) - 1;
+
 /**
  * Manages audio files and players, providing control over playback on three audio channels.
  *
@@ -135,16 +137,17 @@ export class AudioManager {
     /* Simple, fast cache for one-shot nodes */
     private readonly _oneShotCache!: ReadonlyArray<OneShotPlayer>;
     private _oneShotIndex = 0;
+    private _hasOneShotStopped = false;
 
     /* Cache for regular nodes */
     private _freePlayers: BufferPlayer[] = [];
     private _busyPlayers = new Map<number, BufferPlayer>();
+    private _instanceCounter: number[] = [];
 
     private readonly _oneShotCacheSize!: number;
     private readonly _masterGain = new GainNode(_audioContext);
     private readonly _musicGain = new GainNode(_audioContext);
     private readonly _sfxGain = new GainNode(_audioContext);
-    private _hasOneShotStopped = false;
 
     /**
      * @overload
@@ -224,7 +227,15 @@ export class AudioManager {
             this._bufferCache.get(id)!.push(audioBuffer);
         }
 
+        /* Init the instanceCounter */
+        this._instanceCounter[id] = 0;
         this.emitter.notify({id: id, state: PlayState.READY});
+    }
+
+    async loadMultiple(...pair: [string[] | string, number][]) {
+        for (const p of pair) {
+            await this.load(p[0], p[1]);
+        }
     }
 
     /**
@@ -241,17 +252,25 @@ export class AudioManager {
         if (!buffer) {
             throw `audio-manager: No identifier with number: ${id} found!`;
         }
-        const player = this._busyPlayers.get(id) || this._freePlayers.pop();
+        const player = this._freePlayers.pop();
         if (!player) {
-            throw 'audio-manager: Reached maximum number of simultaneously playable sounds!';
+            console.warn(
+                'audio-manager: Reached maximum number of simultaneously playable sounds!'
+            );
+            return -1;
         }
-        player.stop();
-        this._busyPlayers.set(id, player);
+
+        const instanceCount = this._instanceCounter[id];
+        const unique_id = (id << 16) + instanceCount;
+        this._instanceCounter[id] = (instanceCount + 1) % MAX_NUMBER_OF_INSTANCES;
+
+        this._busyPlayers.set(unique_id, player);
         if (_audioContext.state === 'suspended') {
             await unlockAudioContext();
         }
-        player.play(buffer, id, config);
-        this.emitter.notify({id: id, state: PlayState.PLAYING});
+        player.play(buffer, unique_id, config);
+        this.emitter.notify({id: unique_id, state: PlayState.PLAYING});
+        return unique_id;
     }
 
     /**
@@ -260,8 +279,7 @@ export class AudioManager {
      * @note
      * - IDs can be triggered as often as there are one-shot players in the AudioManager.
      * - One shots work with First-In-First-Out principle. If all players are occupied, the manager will stop the
-     * one that started playing first, to free up a player for the new ID.
-     * //@todo: Question for Timmy: Not sure if SFX will suit most use cases or MASTER is the better choice.
+     *   one that started playing first, to free up a player for the new ID.
      * - One-shots are always connect to the SFX channel.
      * - One-shots cant loop.
      * - One-shots can only be stopped all at once with stopOneShots()
@@ -287,9 +305,18 @@ export class AudioManager {
      * Stops the audio associated with the given ID.
      * @note This does not work for one-shots!
      * @param id
+     * @param unique_id
      */
-    stop(id: number) {
-        this._busyPlayers.get(id)?.stopAndFree();
+    stop(id: number, unique_id?: number) {
+        if (unique_id) {
+            this._busyPlayers.get(unique_id)?.stopAndFree();
+            return;
+        }
+        this._busyPlayers.forEach((player) => {
+            if (player.bufferId >> 16 === id) {
+                player.stopAndFree();
+            }
+        });
     }
 
     /**
@@ -349,12 +376,12 @@ export class AudioManager {
      * Frees a player that was currently playing the given ID.
      *
      * @warning This is for internal use only, use at your own risk!
-     * @param id Identifier of previously playing audio.
+     * @param uniqueId Identifier of previously playing audio.
      */
-    _freeUpBusyPlayer(id: number) {
-        const player = this._busyPlayers.get(id);
+    _freeUpBusyPlayer(uniqueId: number) {
+        const player = this._busyPlayers.get(uniqueId);
         if (player) {
-            this._busyPlayers.delete(id);
+            this._busyPlayers.delete(uniqueId);
             this._freePlayers.push(player);
         }
     }
