@@ -160,7 +160,7 @@ export class AudioManager {
      * @example
      * ```js
      * // AudioManager can't be constructed in a non-browser environment!
-     * export const am = window.AudioContext ? new AudioManager() : null;
+     * export const am = window.AudioContext ? new AudioManager() : null!;
      * ```
      */
     constructor() {
@@ -192,9 +192,14 @@ export class AudioManager {
      * @note Is there more than one-audio file available per id, on playback, they will be selected at random.
      * This enables easy variation of the same sounds!
      *
+     * @throws If negative ID was provided.
+     *
      * @returns A Promise that resolves when all files are successfully loaded.
      */
     async load(path: string[] | string, id: number) {
+        if (id < 0) {
+            throw 'audio-manager: Negative IDs are not valid! Skipping ${path}';
+        }
         const paths = Array.isArray(path) ? path : [path];
         if (!this._bufferCache[id]) {
             this._bufferCache[id] = [];
@@ -223,7 +228,11 @@ export class AudioManager {
      */
     async loadMultiple(...pair: [string[] | string, number][]) {
         for (const p of pair) {
-            await this.load(p[0], p[1]);
+            try {
+                await this.load(p[0], p[1]);
+            } catch (e) {
+               console.error(e);
+            }
         }
     }
 
@@ -237,7 +246,7 @@ export class AudioManager {
      * @warns If no free players are available.
      * @throws If the given ID does not have a buffer associated with it.
      *
-     * @returns A Promise that resolves when the audio has started playing.
+     * @returns A Promise that resolves with a playId when the audio has started playing.
      */
     async play(id: number, config?: PlayConfig) {
         const buffer = this._bufferCache[id];
@@ -356,8 +365,11 @@ export class AudioManager {
             case Channel.SFX:
                 this._sfxGain.gain.linearRampToValueAtTime(volume, time);
                 break;
-            default:
+            case Channel.MASTER:
                 this._masterGain.gain.linearRampToValueAtTime(volume, time);
+                break;
+            default:
+                return;
         }
     }
 
@@ -368,6 +380,7 @@ export class AudioManager {
      * @param id Identifier of the audio that should be removed.
      */
     remove(id: number) {
+        if (id < 0) return;
         this.stop(id);
         this._bufferCache[id] = undefined;
         this._instanceCounter[id] = 0;
@@ -417,4 +430,7 @@ export class AudioManager {
     }
 }
 
-export const globalAudioManager = window.AudioContext ? new AudioManager() : null;
+/**
+ * Global instance of a AudioManager.
+ */
+export const globalAudioManager = window.AudioContext ? new AudioManager() : null!;

@@ -174,16 +174,21 @@ export class AudioSource extends Component {
 
     setAudioChannel(am: AudioManager, channel: Channel) {
         this.stop();
-        this._gainNode.disconnect();
         switch (channel) {
             case Channel.MUSIC:
+                this._gainNode.disconnect();
                 this._gainNode.connect(am['_musicGain']);
                 break;
             case Channel.SFX:
+                this._gainNode.disconnect();
                 this._gainNode.connect(am['_sfxGain']);
                 break;
-            default:
+            case Channel.MASTER:
+                this._gainNode.disconnect();
                 this._gainNode.connect(am['_masterGain']);
+                break;
+            default:
+                return;
         }
     }
 
