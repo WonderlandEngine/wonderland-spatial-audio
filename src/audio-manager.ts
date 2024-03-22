@@ -12,10 +12,10 @@ import {
  * Enumerates the available channels within the AudioManager.
  * These channels can be utilized to regulate global volume of audio.
  */
-export enum Channel {
-    /** Intended for sound effects. Connects to Master Channel. */
+export enum AudioChannel {
+    /** Intended for sound effects. Connects to Master AudioChannel. */
     SFX,
-    /** Intended for music. Connects to Master Channel. */
+    /** Intended for music. Connects to Master AudioChannel. */
     MUSIC,
     /** Connects directly to output. */
     MASTER,
@@ -60,8 +60,10 @@ export type PlayConfig = {
      * @note Panned audio will always use HRTF for spatialization.
      */
     position?: Float32Array;
-    /** Sets the channel on which the audio will be played */
-    channel?: Channel;
+    /** Sets the channel on which the audio will be played. */
+    channel?: AudioChannel;
+    /** Whether the audio has priority or not. */
+    priority?: boolean;
 };
 
 /**
@@ -84,7 +86,7 @@ const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
  * The AudioManager handles audio files and players, offering control over playback on three distinct channels.
  * It supports two types of players: OneShot players, which play audio once and return, and regular players.
  * OneShot players are less configurable but more performant than regular players.
- * @see Channel
+ * @see AudioChannel
  *
  * @note The AudioManager is able to play audio with spatial positioning. Keep in mind that for this to work
  * correctly, you will need to set up the `audio-listener` component!
@@ -149,7 +151,6 @@ export class AudioManager {
     private readonly _masterGain = new GainNode(_audioContext);
     private readonly _musicGain = new GainNode(_audioContext);
     private readonly _sfxGain = new GainNode(_audioContext);
-
 
     /**
      * Constructs a AudioManager.
@@ -221,17 +222,19 @@ export class AudioManager {
      *
      * @see load
      *
+     * @note Logs an error message to the console if one pair failed to load.
+     *
      * @param pair Pair of source files and associating identifier.
      * Multiple pairs can be provided as separate arguments.
      *
      * @returns A Promise that resolves when all files are successfully loaded.
      */
-    async loadMultiple(...pair: [string[] | string, number][]) {
+    async loadBatch(...pair: [string[] | string, number][]) {
         for (const p of pair) {
             try {
                 await this.load(p[0], p[1]);
             } catch (e) {
-               console.error(e);
+                console.error(e);
             }
         }
     }
@@ -241,10 +244,13 @@ export class AudioManager {
      *
      * @param id ID of the file that should be played.
      * @param config Optional parameter that will configure how the audio is played. Is no configuration provided,
-     * the audio will play at volume 1.0, without panning and on the MASTER channel.
+     * the audio will play at volume 1.0, without panning and on the SFX channel, priority set to false.
      *
-     * @warns If no free players are available.
-     * @throws If the given ID does not have a buffer associated with it.
+     * @note If the 'priority' parameter is set to true, the audio playback will not be interrupted
+     * to allocate a player in case all players are currently occupied. If 'priority' is set to false (default),
+     * playback may be interrupted to allocate a player for a new 'play()' call.
+     *
+     * @throws If the given ID does not have a buffer associated with it or there are no available players.
      *
      * @returns A Promise that resolves with a playId when the audio has started playing.
      */
@@ -253,12 +259,9 @@ export class AudioManager {
         if (!buffer) {
             throw `audio-manager: No audio source is associated with identifier: ${id} !`;
         }
-        const player = this._freePlayers.pop();
+        const player = this._freePlayers.pop() || this._freePlayerWithLowPriority();
         if (!player) {
-            console.warn(
-                'audio-manager: Reached maximum number of simultaneously playable sounds!'
-            );
-            return -1;
+            throw `audio-manager: All players are busy and no low priority player could be found to free up!`;
         }
 
         const instanceCount = this._instanceCounter[id];
@@ -269,9 +272,18 @@ export class AudioManager {
         if (_audioContext.state === 'suspended') {
             await _unlockAudioContext();
         }
+        player.priority = config?.priority || false;
         player.play(buffer, unique_id, config);
         this.emitter.notify({id: unique_id, state: PlayState.PLAYING});
         return unique_id;
+    }
+
+    private _freePlayerWithLowPriority() {
+        for (const player of this._busyPlayers.values()) {
+            if (player.priority) continue;
+            player.stopAndFree();
+            return this._freePlayers.pop();
+        }
     }
 
     /**
@@ -283,7 +295,8 @@ export class AudioManager {
      *   one that started playing first, to free up a player for the new ID.
      * - One-shots are always connect to the SFX channel.
      * - One-shots cant loop.
-     * - One-shots can only be stopped all at once with stopOneShots()
+     * - One-shots can only be stopped all at once with stopOneShots().
+     * - One-shots can't be assigned a priority.
      *
      * @param id ID of the file that should be played.
      * @param config  Optional parameter that will configure how the audio is played. Note that only the position
@@ -355,17 +368,17 @@ export class AudioManager {
      * @param time Optional time parameter that specifies the time it takes for the channel to reach the specified
      * volume in seconds (Default is 0).
      */
-    setGlobalVolume(channel: Channel, volume: number, time = 0) {
+    setGlobalVolume(channel: AudioChannel, volume: number, time = 0) {
         volume = Math.max(MIN_VOLUME, volume);
         time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, time);
         switch (channel) {
-            case Channel.MUSIC:
+            case AudioChannel.MUSIC:
                 this._musicGain.gain.linearRampToValueAtTime(volume, time);
                 break;
-            case Channel.SFX:
+            case AudioChannel.SFX:
                 this._sfxGain.gain.linearRampToValueAtTime(volume, time);
                 break;
-            case Channel.MASTER:
+            case AudioChannel.MASTER:
                 this._masterGain.gain.linearRampToValueAtTime(volume, time);
                 break;
             default:

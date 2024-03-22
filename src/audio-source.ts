@@ -1,7 +1,7 @@
 import {Component, Emitter, WonderlandEngine} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {_audioContext, AudioListener, _unlockAudioContext} from './audio-listener.js';
-import {Channel, AudioManager, PlayState} from './audio-manager.js';
+import {AudioChannel, AudioManager, PlayState} from './audio-manager.js';
 import {MIN_RAMP_TIME, MIN_VOLUME} from './audio-players.js';
 
 export enum PanningType {
@@ -172,18 +172,18 @@ export class AudioSource extends Component {
         }
     }
 
-    setAudioChannel(am: AudioManager, channel: Channel) {
+    setAudioChannel(am: AudioManager, channel: AudioChannel) {
         this.stop();
         switch (channel) {
-            case Channel.MUSIC:
+            case AudioChannel.MUSIC:
                 this._gainNode.disconnect();
                 this._gainNode.connect(am['_musicGain']);
                 break;
-            case Channel.SFX:
+            case AudioChannel.SFX:
                 this._gainNode.disconnect();
                 this._gainNode.connect(am['_sfxGain']);
                 break;
-            case Channel.MASTER:
+            case AudioChannel.MASTER:
                 this._gainNode.disconnect();
                 this._gainNode.connect(am['_masterGain']);
                 break;

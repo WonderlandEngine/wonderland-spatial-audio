@@ -1,5 +1,5 @@
 import {_audioContext} from './audio-listener.js';
-import {Channel, AudioManager, PlayConfig, PlayState} from './audio-manager.js';
+import {AudioChannel, AudioManager, PlayConfig, PlayState} from './audio-manager.js';
 
 /* Ramp times of 0 cause a click, 5 ms should be sufficient */
 export const MIN_RAMP_TIME = 5 / 1000;
@@ -46,6 +46,7 @@ class PlayableNode {
 
 export class BufferPlayer extends PlayableNode {
     public bufferId = -1;
+    public priority = false;
     private readonly _audioManager: AudioManager;
 
     /**
@@ -65,14 +66,14 @@ export class BufferPlayer extends PlayableNode {
         }
         this.bufferId = id;
         switch (config?.channel) {
-            case Channel.MUSIC:
+            case AudioChannel.MUSIC:
                 this._gainNode.connect(this._audioManager['_musicGain']);
                 break;
-            case Channel.SFX:
-                this._gainNode.connect(this._audioManager['_sfxGain']);
+            case AudioChannel.MASTER:
+                this._gainNode.connect(this._audioManager['_masterGain']);
                 break;
             default:
-                this._gainNode.connect(this._audioManager['_masterGain']);
+                this._gainNode.connect(this._audioManager['_sfxGain']);
         }
         this._gainNode.gain.value = config?.volume || DEF_VOL;
         const randomIndex = Math.floor(Math.random() * audioBuffers.length);
