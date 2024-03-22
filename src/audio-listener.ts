@@ -26,7 +26,7 @@ export {_audioContext};
  * @note WebAudio AudioContext only resumes on user interaction.
  * @warning This is for internal use only, use at own risk!
  */
-export async function unlockAudioContext(): Promise<void> {
+export async function _unlockAudioContext(): Promise<void> {
     return new Promise<void>((resolve) => {
         const unlockHandler = () => {
             _audioContext.resume().then(() => {

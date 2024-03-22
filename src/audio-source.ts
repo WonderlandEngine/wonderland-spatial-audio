@@ -1,6 +1,6 @@
 import {Component, Emitter, WonderlandEngine} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
-import {_audioContext, AudioListener, unlockAudioContext} from './audio-listener.js';
+import {_audioContext, AudioListener, _unlockAudioContext} from './audio-listener.js';
 import {Channel, AudioManager, PlayState} from './audio-manager.js';
 import {MIN_RAMP_TIME, MIN_VOLUME} from './audio-players.js';
 
@@ -190,13 +190,13 @@ export class AudioSource extends Component {
     /**
      * Plays the audio associated with this audio src.
      *
-     * @note Is this audio-source currently playing, playback will be stopped.
+     * @note Is this audio-source currently playing, playback will be restarted.
      */
     async play() {
         if (this._isPlaying) {
             this.stop();
         } else if (_audioContext.state === 'suspended') {
-            await unlockAudioContext();
+            await _unlockAudioContext();
         }
         this._gainNode.gain.value = this.volume;
         this._audioNode.buffer = this._buffer;
@@ -305,7 +305,7 @@ export class AudioSource extends Component {
             maxDistance: this.maxDistance,
             refDistance: this.refDistance,
             rolloffFactor: this.rolloffFactor,
-            panningModel: this.spatial == 2 ? 'HRTF' : 'equalpower',
+            panningModel: this.spatial === 2 ? 'HRTF' : 'equalpower',
             positionX: posVec[0],
             positionY: posVec[2],
             positionZ: -posVec[1],

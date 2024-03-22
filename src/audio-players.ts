@@ -135,7 +135,6 @@ export class OneShotPlayer extends PlayableNode {
     ): Promise<void> {
         if (this._isPlaying) {
             this.stop();
-            this._audioManager['_hasOneShotStopped'] = true;
         }
         this._gainNode.gain.value = Math.max(MIN_VOLUME, vol);
         this._audioNode.buffer = audioBuffer;

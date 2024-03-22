@@ -1,4 +1,4 @@
-import {_audioContext, unlockAudioContext} from './audio-listener.js';
+import {_audioContext, _unlockAudioContext} from './audio-listener.js';
 import {Emitter} from '@wonderlandengine/api';
 import {
     BufferPlayer,
@@ -10,7 +10,7 @@ import {
 
 /**
  * Enumerates the available channels within the AudioManager.
- * These channels can be utilized to regulate the global volume of audio.
+ * These channels can be utilized to regulate global volume of audio.
  */
 export enum Channel {
     /** Intended for sound effects. Connects to Master Channel. */
@@ -66,9 +66,6 @@ export type PlayConfig = {
 
 /**
  * Default number of one-shot players.
- * @todo: Question for Timmy: From your experience, how many one-shots/regular stuff (loops, music, etc) do you
- * typically
- * need?
  */
 export const DEF_ONESHT_PLR_COUNT = 16;
 
@@ -77,7 +74,8 @@ export const DEF_ONESHT_PLR_COUNT = 16;
  */
 export const DEF_PLR_COUNT = 16;
 
-const MAX_NUMBER_OF_INSTANCES = (1 << 16) - 1;
+const SHIFT_AMOUNT = 16;
+const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
 
 /**
  * Manages audio files and players, providing control over playback on three audio channels.
@@ -86,10 +84,10 @@ const MAX_NUMBER_OF_INSTANCES = (1 << 16) - 1;
  * The AudioManager handles audio files and players, offering control over playback on three distinct channels.
  * It supports two types of players: OneShot players, which play audio once and return, and regular players.
  * OneShot players are less configurable but more performant than regular players.
- * Upon creation, the AudioManager can be configured with the desired number of OneShot and regular players,
- * affecting the maximum number of simultaneous sounds that can play.
- * It is advisable to experiment with player counts to optimize resource usage.
  * @see Channel
+ *
+ * @note The AudioManager is able to play audio with spatial positioning. Keep in mind that for this to work
+ * correctly, you will need to set up the `audio-listener` component!
  *
  * @example
  * ```js
@@ -113,17 +111,21 @@ const MAX_NUMBER_OF_INSTANCES = (1 << 16) - 1;
  *
  */
 export class AudioManager {
-    /** The emitter will notify all listeners about the PlayState of each ID.
+    /** The emitter will notify all listeners about the PlayState of a unique ID.
      *
      * @note
-     * - READY will be emitted if all sources of a given ID have loaded.
-     * - PLAYING / STOPPED are only emitted for IDs that have been started with play()
+     * - READY will be emitted if all sources of a given source ID have loaded.
+     * - PLAYING / STOPPED are only emitted for play IDs that are returned by the play() method.
+     * - If you want to check the status for a source ID, convert the play ID of the message using the
+     *   getSourceIdFromPlayId() method.
      * - OneShots won't give status updates.
      *
+     * @see getSourceIdFromPlayId
      * @example
      * ```js
+     * const music = audioManager.play(Sounds.Music);
      * audioManager.emitter.add((msg) => {
-     *    if (msg.id === Sounds.Click) {
+     *    if (msg.id === music) {
      *          console.log(msg.state);
      *    }
      * });
@@ -132,68 +134,43 @@ export class AudioManager {
     readonly emitter = new Emitter<[PlayStateWithID]>();
 
     /* Cache for decoded audio buffers */
-    private _bufferCache = new Map<number, AudioBuffer[]>();
+    private _bufferCache: (AudioBuffer[] | undefined)[] = [];
 
     /* Simple, fast cache for one-shot nodes */
     private readonly _oneShotCache!: ReadonlyArray<OneShotPlayer>;
     private _oneShotIndex = 0;
-    private _hasOneShotStopped = false;
 
     /* Cache for regular nodes */
     private _freePlayers: BufferPlayer[] = [];
     private _busyPlayers = new Map<number, BufferPlayer>();
+    /* Counts how many times a sourceId has played. Resets to 0 after {@link MAX_NUMBER_OF_INSTANCES }. */
     private _instanceCounter: number[] = [];
 
-    private readonly _oneShotCacheSize!: number;
     private readonly _masterGain = new GainNode(_audioContext);
     private readonly _musicGain = new GainNode(_audioContext);
     private readonly _sfxGain = new GainNode(_audioContext);
 
-    /**
-     * @overload
-     */
-    constructor();
-
-    /**
-     * @overload
-     * @param oneShotPlayerCount Parameter that specifies the amount of one-shot players.
-     * @param playerCount Parameter that specifies the amount of regular players.
-     */
-    constructor(oneShotPlayerCount: number, playerCount: number);
 
     /**
      * Constructs a AudioManager.
      *
-     * Specify here how many players of each kind your project will need.
-     *
-     * @note If you are unsure how many players of each type you need, run with defaults at first.
-     * After a period of heavy use, check the `amountOfFreePlayers()` and `hasStoppedOneShot()` getters of the
-     * AudioManager.
-     *
-     * @warning
-     * The combined amount of simultaneously playing audio files on Meta Quest 2 is about 30!
-     *
-     * @see amountOfFreePlayers
-     * @see hasStoppedOneShot
-     *
-     * @param oneShotPlayerCount Optional parameter that specifies the amount of one-shot players.
-     * @param playerCount Optional parameter that specifies the amount of regular players.
-     *
+     * Uses the default amount of one-shot and regular players.
+     * @see DEF_ONESHT_PLR_COUNT
+     * @see DEF_PLR_COUNT
      * @example
      * ```js
      * // AudioManager can't be constructed in a non-browser environment!
      * export const am = window.AudioContext ? new AudioManager() : null;
      * ```
      */
-    constructor(oneShotPlayerCount = DEF_ONESHT_PLR_COUNT, playerCount = DEF_PLR_COUNT) {
+    constructor() {
         this._sfxGain.connect(this._masterGain);
         this._musicGain.connect(this._masterGain);
         this._masterGain.connect(_audioContext.destination);
-        this._oneShotCacheSize = oneShotPlayerCount;
-        this._oneShotCache = this._initOneShotCache(oneShotPlayerCount);
+        this._oneShotCache = this._initOneShotCache(DEF_ONESHT_PLR_COUNT);
 
         /* Initialize buffer player cache */
-        for (let i = 0; i < playerCount; i++) {
+        for (let i = 0; i < DEF_PLR_COUNT; i++) {
             this._freePlayers[i] = new BufferPlayer(this);
         }
     }
@@ -214,17 +191,19 @@ export class AudioManager {
      *
      * @note Is there more than one-audio file available per id, on playback, they will be selected at random.
      * This enables easy variation of the same sounds!
+     *
+     * @returns A Promise that resolves when all files are successfully loaded.
      */
     async load(path: string[] | string, id: number) {
         const paths = Array.isArray(path) ? path : [path];
-        if (!this._bufferCache.has(id)) {
-            this._bufferCache.set(id, []);
+        if (!this._bufferCache[id]) {
+            this._bufferCache[id] = [];
         }
         for (let i = 0; i < paths.length; i++) {
             const response = await fetch(paths[i]);
             const arrayBuffer = await response.arrayBuffer();
             const audioBuffer = await _audioContext.decodeAudioData(arrayBuffer);
-            this._bufferCache.get(id)!.push(audioBuffer);
+            this._bufferCache[id]!.push(audioBuffer);
         }
 
         /* Init the instanceCounter */
@@ -232,6 +211,16 @@ export class AudioManager {
         this.emitter.notify({id: id, state: PlayState.READY});
     }
 
+    /**
+     * Analogous to load(), but lets you easily load a bunch of files without needing to call the manager everytime.
+     *
+     * @see load
+     *
+     * @param pair Pair of source files and associating identifier.
+     * Multiple pairs can be provided as separate arguments.
+     *
+     * @returns A Promise that resolves when all files are successfully loaded.
+     */
     async loadMultiple(...pair: [string[] | string, number][]) {
         for (const p of pair) {
             await this.load(p[0], p[1]);
@@ -241,16 +230,19 @@ export class AudioManager {
     /**
      * Plays the audio file associated with the given ID.
      *
-     * @note Is the given ID already playing, it will restart its playback.
      * @param id ID of the file that should be played.
      * @param config Optional parameter that will configure how the audio is played. Is no configuration provided,
      * the audio will play at volume 1.0, without panning and on the MASTER channel.
-     * @throws If the given ID does not have a buffer associated with it, or all players are currently occupied.
+     *
+     * @warns If no free players are available.
+     * @throws If the given ID does not have a buffer associated with it.
+     *
+     * @returns A Promise that resolves when the audio has started playing.
      */
     async play(id: number, config?: PlayConfig) {
-        const buffer = this._bufferCache.get(id);
+        const buffer = this._bufferCache[id];
         if (!buffer) {
-            throw `audio-manager: No identifier with number: ${id} found!`;
+            throw `audio-manager: No audio source is associated with identifier: ${id} !`;
         }
         const player = this._freePlayers.pop();
         if (!player) {
@@ -261,12 +253,12 @@ export class AudioManager {
         }
 
         const instanceCount = this._instanceCounter[id];
-        const unique_id = (id << 16) + instanceCount;
+        const unique_id = (id << SHIFT_AMOUNT) + instanceCount;
         this._instanceCounter[id] = (instanceCount + 1) % MAX_NUMBER_OF_INSTANCES;
 
         this._busyPlayers.set(unique_id, player);
         if (_audioContext.state === 'suspended') {
-            await unlockAudioContext();
+            await _unlockAudioContext();
         }
         player.play(buffer, unique_id, config);
         this.emitter.notify({id: unique_id, state: PlayState.PLAYING});
@@ -288,32 +280,40 @@ export class AudioManager {
      * @param config  Optional parameter that will configure how the audio is played. Note that only the position
      * and volume settings will affect the playback.
      * @throws If the given ID does not have a buffer associated with it.
+     *
+     * @returns A Promise that resolves when the audio has started playing.
      */
     async playOneShot(id: number, config?: PlayConfig) {
-        const buffers = this._bufferCache.get(id);
+        const buffers = this._bufferCache[id];
         if (!buffers) {
-            throw `audio-manager: No identifier with number: ${id} found!`;
+            throw `audio-manager: No audio source is associated with identifier: ${id} !`;
         }
         const audioBuffer = buffers[Math.floor(Math.random() * buffers.length)];
         const player = this._oneShotCache[this._oneShotIndex];
         await player.play(audioBuffer, config?.volume || DEF_VOL, config?.position);
         /* Advance cache pointer */
-        this._oneShotIndex = (this._oneShotIndex + 1) % this._oneShotCacheSize;
+        this._oneShotIndex = (this._oneShotIndex + 1) % DEF_ONESHT_PLR_COUNT;
     }
 
     /**
      * Stops the audio associated with the given ID.
-     * @note This does not work for one-shots!
-     * @param id
-     * @param unique_id
+     *
+     * @warning This does not work for one-shots!
+     *
+     * @param sourceId Identifier of the audio source that should be stopped.
+     * @param playId Optional parameter that specifies the exact audio that should be stopped.
+     * If not provided, all audio of the given sourceId will be stopped.
+     *
+     * @note Obtain the playId from the play() method.
+     * @see play
      */
-    stop(id: number, unique_id?: number) {
-        if (unique_id) {
-            this._busyPlayers.get(unique_id)?.stopAndFree();
+    stop(sourceId: number, playId?: number) {
+        if (playId) {
+            this._busyPlayers.get(playId)?.stopAndFree();
             return;
         }
         this._busyPlayers.forEach((player) => {
-            if (player.bufferId >> 16 === id) {
+            if (player.bufferId >> SHIFT_AMOUNT === sourceId) {
                 player.stopAndFree();
             }
         });
@@ -342,13 +342,13 @@ export class AudioManager {
      * Sets the volume of the given audio channel.
      *
      * @param channel Specifies the audio channel type that should be modified.
-     * @param v Volume that the channel should be set to.
-     * @param t Optional time parameter that specifies the time it takes for the channel to reach the specified
+     * @param volume Volume that the channel should be set to.
+     * @param time Optional time parameter that specifies the time it takes for the channel to reach the specified
      * volume in seconds (Default is 0).
      */
-    setGlobalVolume(channel: Channel, v: number, t = 0) {
-        const volume = Math.max(MIN_VOLUME, v);
-        const time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, t);
+    setGlobalVolume(channel: Channel, volume: number, time = 0) {
+        volume = Math.max(MIN_VOLUME, volume);
+        time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, time);
         switch (channel) {
             case Channel.MUSIC:
                 this._musicGain.gain.linearRampToValueAtTime(volume, time);
@@ -364,24 +364,45 @@ export class AudioManager {
     /**
      * Removes all decoded audio from the manager that is associated with the given ID.
      *
-     * @warning This will stop the playback of the given ID.
+     * @warning This will stop playback of the given ID.
      * @param id Identifier of the audio that should be removed.
      */
     remove(id: number) {
         this.stop(id);
-        this._bufferCache.delete(id);
+        this._bufferCache[id] = undefined;
+        this._instanceCounter[id] = 0;
+    }
+
+    /**
+     * Removes all decoded audio from the manager, effectively resetting it.
+     *
+     * @warning This will stop playback entirely.
+     */
+    removeAll() {
+        this.stopAll();
+        this._bufferCache.length = 0;
+        this._instanceCounter.length = 0;
+    }
+
+    /**
+     * Gets the sourceId of a playId.
+     *
+     * @param playId of which to get the sourceId from.
+     */
+    getSourceIdFromPlayId(playId: number) {
+        return playId >> SHIFT_AMOUNT;
     }
 
     /**
      * Frees a player that was currently playing the given ID.
      *
      * @warning This is for internal use only, use at your own risk!
-     * @param uniqueId Identifier of previously playing audio.
+     * @param playId Identifier of previously playing audio.
      */
-    _freeUpBusyPlayer(uniqueId: number) {
-        const player = this._busyPlayers.get(uniqueId);
+    _freeUpBusyPlayer(playId: number) {
+        const player = this._busyPlayers.get(playId);
         if (player) {
-            this._busyPlayers.delete(uniqueId);
+            this._busyPlayers.delete(playId);
             this._freePlayers.push(player);
         }
     }
@@ -389,28 +410,11 @@ export class AudioManager {
     /**
      * Gets the current amount of free regular players in the audio manager.
      *
-     * @note Use this to check how many resources your current project is actually using, and then optimize the
-     * amount of regular players in the AudioManager constructor.
+     * @note Use this to check how many resources your current project is using.
      */
     get amountOfFreePlayers() {
         return this._freePlayers.length;
     }
-
-    /**
-     * Checks if a one-shot has been stopped to make room for another.
-     *
-     * @note This could indicate that there aren't enough one-shot players. Keep in mind though, that it might not
-     * be noticeable (and therefore doesn't matter) if the last started one-shot had to stop before its natural end.
-     *
-     * @returns true if all players were in use at one point and a player had to be stopped to make room for another
-     * one-shot.
-     */
-    get hasStoppedOneShot() {
-        return this._hasOneShotStopped;
-    }
 }
 
-// @todo: Question for Timmy: Not sure if we need to give the user a instance or not. What do you think? It would
-//  kind of defeat the purpose of having it configurable in the first place. Or should we come up with reasonable
-//  defaults and make it not configurable at all?
 export const globalAudioManager = window.AudioContext ? new AudioManager() : null;
