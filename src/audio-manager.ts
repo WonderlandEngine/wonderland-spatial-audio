@@ -58,6 +58,7 @@ export type PlayConfig = {
      * Sets the position of the audio source and makes it spatial.
      *
      * @note Panned audio will always use HRTF for spatialization.
+     * @warning For this to work correctly, the audio-listener needs to be set up correctly!
      */
     position?: Float32Array;
     /** Sets the channel on which the audio will be played. */
