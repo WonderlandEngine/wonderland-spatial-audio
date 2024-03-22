@@ -3,9 +3,8 @@ import {Component} from '@wonderlandengine/api';
 const SAMPLE_RATE = 48000;
 /* 5ms for now, so it definitely takes less than one frame */
 const FADE_DURATION = 5 / 1000;
-const tempVec: Float32Array = new Float32Array(3);
-const tempVec2: Float32Array = new Float32Array(3);
-export const audioBuffers: {[key: string]: Promise<AudioBuffer>} = {};
+const tempVec = new Float32Array(3);
+const tempVec2 = new Float32Array(3);
 
 /**
  * Variables
@@ -20,24 +19,32 @@ if (window.AudioContext !== undefined) {
 
 export {_audioContext};
 
-export async function getAudioData(file: string) {
-    try {
-        if (await audioBuffers[file]) return;
+/**
+ * Unlocks the WebAudio AudioContext.
+ *
+ * @returns a promise that fulfills when the audioContext resumes.
+ * @note WebAudio AudioContext only resumes on user interaction.
+ * @warning This is for internal use only, use at own risk!
+ */
+export async function _unlockAudioContext(): Promise<void> {
+    return new Promise<void>((resolve) => {
+        const unlockHandler = () => {
+            _audioContext.resume().then(() => {
+                window.removeEventListener('click', unlockHandler);
+                window.removeEventListener('touch', unlockHandler);
+                window.removeEventListener('keydown', unlockHandler);
+                window.removeEventListener('mousedown', unlockHandler);
+                resolve();
+            });
+        };
 
-        const response = await fetch(file);
-
-        if (!response.ok) {
-            console.error(`audio-listener: Failed to fetch audio data from ${file}`);
-            return;
-        }
-
-        const buffer = await response.arrayBuffer();
-        audioBuffers[file] = _audioContext.decodeAudioData(buffer);
-    } catch (error) {
-        console.error(`audio-listener: Error in getAudioData for file ${file}`);
-        return;
-    }
+        window.addEventListener('click', unlockHandler);
+        window.addEventListener('touch', unlockHandler);
+        window.addEventListener('keydown', unlockHandler);
+        window.addEventListener('mousedown', unlockHandler);
+    });
 }
+
 /**
  * Represents a Wonderland audio listener component.
  * Updates the position and orientation of a WebAudio listener instance.
@@ -56,7 +63,7 @@ export class AudioListener extends Component {
     /**
      * The time in which the last position update will be done.
      */
-    private time: number = 0;
+    private time = 0;
 
     start() {
         /* Check if recommended functions are supported */
