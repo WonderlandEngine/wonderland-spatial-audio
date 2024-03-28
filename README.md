@@ -36,6 +36,8 @@ be available to attach to objects.
    Only one listener component should be active at any given time. To achieve this, use
    the `vr-mode-active-switch` component.
 
+ ⚠️  The listener is necessary for spatial panning to work correctly in the `AudioManager` and `AudioSource`!
+
 ### Audio Sources
 
 Add an `audio-source` component to objects that should play sound. Set the `src`
@@ -43,55 +45,66 @@ property to a URL in the `static` folder of your project.
 (E.g., for `static/sfx/sound.mp3` enter `sfx/sound.mp3`).
 If `spatial` is set to `none`, all settings below are ignored.
 
+- Setting the `spatial` setting in code can only be done using numbers or boolean:
+```js
+this.audio.spatial = 0 || false; // No panning
+this.audio.spatial = 1 || true;  // Regular panning
+this.audio.spatial = 2;          // HRFT spatial panning
+```
+
+- Changing the `volume` parameter will only take effect when calling the `play()` function. If the audio is already 
+  playing, use `setVolumeDuringPlayback()` instead.
+
 ### AudioManager
 
+The `AudioManager` can be used to play audio from anywhere in your project! It is a way to conveniently 
+manage audio files. This package provides a global instance of the manager called `globalAudioManager`. To make use of 
+it, create 
+your own 
+identifiers and then load up the 
+manager 
+with your audio files:
+
 ```js
-// Load your audio on start(), so it is ready when you need it.
-start() {
-    globalAudioManager.load('audio.mp3').then((playableNode) => {
-        this.audio = playableNode;
+enum MySounds {
+    Gunshot,
+    Zombie,
+}
+
+globalAudioManager.load('sfx/gunshot.mp3', MySounds.Gunshot);
+// You can even load multiple files for one ID. On play, a random file of the provided ones will be selected. 
+globalAudioManager.load(['sfx/zombie_01.mp3', 'sfx/zombie_02.mp3'], MySounds.Zombie);
+```
+⚠️ Only load() and loadBatch() can be used in top-level code!
+
+There are multiple ways of playing an audio file that has loaded:
+
+```js
+globalAudioManager.play(MySounds.Gunshot);          // Standard way, returns an ID with which audio can be stopped.
+globalAudioManager.playOneShot(MySounds.Gunshot);   // Plays the audio for one time only.
+globalAudioManager.autoplay(MySounds.Gunshot);      // Plays the audio as soon as the user has interacted with the site.
+```
+
+Checkout the `PlayConfig` type, for all the configuration settings! It can be added to change the playback behaviour.
+
+```js
+onPress() {
+    this.object.getPositionWorld(posVec);
+    globalAudioManager.play(MySounds.Gunshot, {
+        volume: 0.8,
+        loop: true,
+        position: posVec,
+        channel: AudioChannel.SFX,
+        priority: false
     });
 }
-
-// Play the file when you need it.
-onClick() {
-    // Plays the audio without panning
-    this.audio.play(); 
-
-    const position = new Float32Array(3);
-    this.object.getPositionWorld(position);
-    // Plays from specified position relative to audio-listener
-    this.audio.play(position);
-}
-
-// Free up the resources, if audio is not needed anymore.
-this.audio.destroy();
 ```
 
-1. Instantiate a playable audio node by invoking the `load()` method of the `AudioManager` class. This method 
-   returns a promise that resolves to an audio node upon successful loading of the audio resource. You can create 
-   your own `AudioManager`, per scene for example, but `wonderland-spatial-audio` also provides a `globalAudioManager`.
+The `AudioManager` has three main channels: SFX, MUSIC and MASTER. Use these to group your audio and 
+control the 
+volume globally. On using `play()`, the respective channels can be selected via the `PlayConfig`. Be aware 
+though that `playOneShot()` will always use the SFX channel!
 
-2. The `play()` method initiates the playback of the audio node. For spatialized audio playback, supply the `play()` method with a position argument in the form `play(pos)`.
-
-3. Each audio node instance exposes several properties for advanced configuration:
-
-```js
-/* The 'volume' property controls the amplitude of the audio output. */
-this.audio.volume = 0.5;
-
-/* The 'HRTF' property, when set to true, enables full HRTF (Head-Related Transfer Function) spatialization,
- * as opposed to standard panning, for better immersion. */
-this.audio.HRTF = true;
-
-/* The 'loop' property, when set to true, causes the audio to repeat indefinitely. */
-this.audio.loop = true;
-```
-
-4. The `destroy()` method deallocates the resources associated with the audio node, effectively removing it from memory.
-
-:warning: As these AudioNodes only play from the specified position, use `audio-source` for any moving objects that
-emmit sound. 
 
 ## Considerations
 
