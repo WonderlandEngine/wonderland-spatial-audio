@@ -149,9 +149,12 @@ export class AudioManager {
     /* Counts how many times a sourceId has played. Resets to 0 after {@link MAX_NUMBER_OF_INSTANCES }. */
     private _instanceCounter: number[] = [];
 
-    private readonly _masterGain = new GainNode(_audioContext);
-    private readonly _musicGain = new GainNode(_audioContext);
-    private readonly _sfxGain = new GainNode(_audioContext);
+    private _masterGain: GainNode;
+    private _musicGain: GainNode;
+    private _sfxGain: GainNode;
+
+    private _unlocked = false;
+    private _autoplayStorage: [number, PlayConfig | undefined][] = [];
 
     /**
      * Constructs a AudioManager.
@@ -166,6 +169,10 @@ export class AudioManager {
      * ```
      */
     constructor() {
+        this._unlockAudioContext();
+        this._sfxGain = new GainNode(_audioContext);
+        this._masterGain = new GainNode(_audioContext);
+        this._musicGain = new GainNode(_audioContext);
         this._sfxGain.connect(this._masterGain);
         this._musicGain.connect(this._masterGain);
         this._masterGain.connect(_audioContext.destination);
@@ -175,14 +182,6 @@ export class AudioManager {
         for (let i = 0; i < DEF_PLR_COUNT; i++) {
             this._freePlayers[i] = new BufferPlayer(this);
         }
-    }
-
-    private _initOneShotCache(size: number) {
-        const cache: OneShotPlayer[] = [];
-        for (let i = 0; i < size; i++) {
-            cache[i] = new OneShotPlayer(this);
-        }
-        return cache;
     }
 
     /**
@@ -253,38 +252,29 @@ export class AudioManager {
      *
      * @throws If the given ID does not have a buffer associated with it or there are no available players.
      *
-     * @returns A Promise that resolves with a playId when the audio has started playing.
+     * @returns The playId that identifies this specific playback, so it can be stopped or identified in the
+     * emitter. If playback could not be started, an invalid playId is returned.
      */
-    async play(id: number, config?: PlayConfig) {
+    play(id: number, config?: PlayConfig) {
         const buffer = this._bufferCache[id];
         if (!buffer) {
             throw `audio-manager: No audio source is associated with identifier: ${id} !`;
         }
-        const player = this._freePlayers.pop() || this._freePlayerWithLowPriority();
+        if (!this._unlocked) {
+            return -1;
+        }
+        const player = this._freePlayers.pop() || this._stopLowPriorityPlayer();
         if (!player) {
             throw `audio-manager: All players are busy and no low priority player could be found to free up!`;
         }
 
-        const instanceCount = this._instanceCounter[id];
-        const unique_id = (id << SHIFT_AMOUNT) + instanceCount;
-        this._instanceCounter[id] = (instanceCount + 1) % MAX_NUMBER_OF_INSTANCES;
+        const unique_id = this._generateUniqueId(id);
 
         this._busyPlayers.set(unique_id, player);
-        if (_audioContext.state === 'suspended') {
-            await _unlockAudioContext();
-        }
         player.priority = config?.priority || false;
         player.play(buffer, unique_id, config);
         this.emitter.notify({id: unique_id, state: PlayState.PLAYING});
         return unique_id;
-    }
-
-    private _freePlayerWithLowPriority() {
-        for (const player of this._busyPlayers.values()) {
-            if (player.priority) continue;
-            player.stopAndFree();
-            return this._freePlayers.pop();
-        }
     }
 
     /**
@@ -306,16 +296,36 @@ export class AudioManager {
      *
      * @returns A Promise that resolves when the audio has started playing.
      */
-    async playOneShot(id: number, config?: PlayConfig) {
+    playOneShot(id: number, config?: PlayConfig) {
         const buffers = this._bufferCache[id];
         if (!buffers) {
             throw `audio-manager: No audio source is associated with identifier: ${id} !`;
         }
         const audioBuffer = buffers[Math.floor(Math.random() * buffers.length)];
         const player = this._oneShotCache[this._oneShotIndex];
-        await player.play(audioBuffer, config?.volume || DEF_VOL, config?.position);
+        player.play(audioBuffer, config?.volume || DEF_VOL, config?.position);
         /* Advance cache pointer */
         this._oneShotIndex = (this._oneShotIndex + 1) % DEF_ONESHT_PLR_COUNT;
+    }
+
+
+    /**
+     * Analogue to `play()` but waits until the user has interacted with the website.
+     *
+     * @param id ID of the file that should be played.
+     * @param config Optional parameter that will configure how the audio is played. Is no configuration provided,
+     * the audio will play at volume 1.0, without panning and on the SFX channel, priority set to false.
+     *
+     * @returns The playId that identifies this specific playback, so it can be stopped or identified in the
+     * emitter.
+     */
+    autoplay(id: number, config?: PlayConfig) {
+        if (this._unlocked) {
+            return this.play(id, config);
+        }
+        const uniqueId = this._generateUniqueId(id);
+        this._autoplayStorage.push([uniqueId, config]);
+        return uniqueId;
     }
 
     /**
@@ -364,7 +374,7 @@ export class AudioManager {
     /**
      * Sets the volume of the given audio channel.
      *
-     * @param channel Specifies the audio channel type that should be modified.
+     * @param channel Specifies the audio channel that should be modified.
      * @param volume Volume that the channel should be set to.
      * @param time Optional time parameter that specifies the time it takes for the channel to reach the specified
      * volume in seconds (Default is 0).
@@ -397,7 +407,7 @@ export class AudioManager {
         if (id < 0) return;
         this.stop(id);
         this._bufferCache[id] = undefined;
-        this._instanceCounter[id] = 0;
+        this._instanceCounter[id] = -1;
     }
 
     /**
@@ -421,6 +431,15 @@ export class AudioManager {
     }
 
     /**
+     * Gets the current amount of free regular players in the audio manager.
+     *
+     * @note Use this to check how many resources your current project is using.
+     */
+    get amountOfFreePlayers() {
+        return this._freePlayers.length;
+    }
+
+    /**
      * Frees a player that was currently playing the given ID.
      *
      * @warning This is for internal use only, use at your own risk!
@@ -434,17 +453,82 @@ export class AudioManager {
         }
     }
 
-    /**
-     * Gets the current amount of free regular players in the audio manager.
-     *
-     * @note Use this to check how many resources your current project is using.
-     */
-    get amountOfFreePlayers() {
-        return this._freePlayers.length;
+    private _playWithUniqueId(uniqueId: number, config?: PlayConfig) {
+        const id = this.getSourceIdFromPlayId(uniqueId);
+        const buffer = this._bufferCache[id];
+        if (!buffer) {
+            throw `audio-manager: No audio source is associated with identifier: ${id} !`;
+        }
+        const player = this._freePlayers.pop() || this._stopLowPriorityPlayer();
+        if (!player) {
+            throw `audio-manager: All players are busy and no low priority player could be found to free up!`;
+        }
+
+        this._busyPlayers.set(uniqueId, player);
+        player.priority = config?.priority || false;
+        player.play(buffer, uniqueId, config);
+        this.emitter.notify({id: uniqueId, state: PlayState.PLAYING});
     }
+
+    private _generateUniqueId(id: number) {
+        let instanceCount = this._instanceCounter[id];
+        if(!instanceCount) instanceCount = 0;
+        else if (instanceCount === -1) return -1;
+        const unique_id = (id << SHIFT_AMOUNT) + instanceCount;
+        this._instanceCounter[id] = (instanceCount + 1) % MAX_NUMBER_OF_INSTANCES;
+        return unique_id;
+    }
+
+    private _stopLowPriorityPlayer() {
+        for (const player of this._busyPlayers.values()) {
+            if (player.priority) continue;
+            player.stopAndFree();
+            return this._freePlayers.pop();
+        }
+    }
+
+    private _initOneShotCache(size: number) {
+        const cache: OneShotPlayer[] = [];
+        for (let i = 0; i < size; i++) {
+            cache[i] = new OneShotPlayer(this);
+        }
+        return cache;
+    }
+
+    private _unlockAudioContext() {
+        const unlockHandler = () => {
+            _audioContext.resume().then(() => {
+                window.removeEventListener('click', unlockHandler);
+                window.removeEventListener('touch', unlockHandler);
+                window.removeEventListener('keydown', unlockHandler);
+                window.removeEventListener('mousedown', unlockHandler);
+                this._unlocked = true;
+                for (const audio of this._autoplayStorage) {
+                    this._playWithUniqueId(audio[0], audio[1]);
+                }
+                this._autoplayStorage.length = 0;
+            });
+        };
+
+        window.addEventListener('click', unlockHandler);
+        window.addEventListener('touch', unlockHandler);
+        window.addEventListener('keydown', unlockHandler);
+        window.addEventListener('mousedown', unlockHandler);
+    }
+
+}
+
+class EmptyAudioManager {
+    async load(path: string[] | string, id: number) {}
+    async loadBatch(...pair: [string[] | string, number][]) {}
 }
 
 /**
  * Global instance of a AudioManager.
+ *
+ * @warning
+ * ⚠️ Only load() and loadBatch() can be used in top-level code ⚠️
  */
-export const globalAudioManager = window.AudioContext ? new AudioManager() : null!;
+export const globalAudioManager = window.AudioContext
+    ? new AudioManager()
+    : new EmptyAudioManager();

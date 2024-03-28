@@ -129,11 +129,7 @@ export class OneShotPlayer extends PlayableNode {
         this._gainNode.connect(this._audioManager['_sfxGain']);
     }
 
-    async play(
-        audioBuffer: AudioBuffer,
-        vol: number,
-        position?: Float32Array
-    ): Promise<void> {
+    play(audioBuffer: AudioBuffer, vol: number, position?: Float32Array) {
         if (this._isPlaying) {
             this.stop();
         }
