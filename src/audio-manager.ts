@@ -1,4 +1,4 @@
-import {_audioContext, _unlockAudioContext} from './audio-listener.js';
+import {_audioContext} from './audio-listener.js';
 import {Emitter} from '@wonderlandengine/api';
 import {
     BufferPlayer,
@@ -10,7 +10,7 @@ import {
 
 /**
  * Enumerates the available channels within the AudioManager.
- * These channels can be utilized to regulate global volume of audio.
+ * These channels can be utilized to regulate global volume.
  */
 export enum AudioChannel {
     /** Intended for sound effects. Connects to Master AudioChannel. */
@@ -47,7 +47,7 @@ type PlayStateWithID = {
  * Combines all settings for configuring playback in the AudioManager.
  *
  * @note The playOneShot() function utilizes this configuration for consistent playback settings. However, one-shots
- * are incapable of looping and do not alter their audio channel.
+ * can only change their volume and position.
  */
 export type PlayConfig = {
     /** Sets the volume of the player (0-1) */
@@ -63,7 +63,10 @@ export type PlayConfig = {
     position?: Float32Array;
     /** Sets the channel on which the audio will be played. */
     channel?: AudioChannel;
-    /** Whether the audio has priority or not. */
+    /**
+     * Whether the audio has priority or not. If not, playback can be stopped to free up a player when no others are
+     * available.
+     */
     priority?: boolean;
 };
 
@@ -102,16 +105,13 @@ const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
  * // AudioManager can't be constructed in a non-browser environment!
  * export const am = window.AudioContext ? new AudioManager() : null;
  *
- * start() {
- *      am.load('path/to/click.wav', Sounds.Click);
- *      am.load('path/to/gunshot.wav', Sounds.GunShot);
- * }
+ * am.load('path/to/click.wav', Sounds.Click);
+ * am.load('path/to/gunshot.wav', Sounds.GunShot);
  *
  * onPress() {
  *      am.play(Sounds.Click, {volume: 0.8, position: [0, 5, 1]});
  * }
  * ```
- *
  */
 export class AudioManager {
     /** The emitter will notify all listeners about the PlayState of a unique ID.
@@ -121,7 +121,7 @@ export class AudioManager {
      * - PLAYING / STOPPED are only emitted for play IDs that are returned by the play() method.
      * - If you want to check the status for a source ID, convert the play ID of the message using the
      *   getSourceIdFromPlayId() method.
-     * - OneShots won't give status updates.
+     * - One-shots won't give status updates.
      *
      * @see getSourceIdFromPlayId
      * @example
@@ -218,11 +218,11 @@ export class AudioManager {
     }
 
     /**
-     * Analogous to load(), but lets you easily load a bunch of files without needing to call the manager everytime.
+     * Same as load(), but lets you easily load a bunch of files without needing to call the manager everytime.
      *
      * @see load
      *
-     * @note Logs an error message to the console if one pair failed to load.
+     * @note Logs an error message to the console if one pair failed to load, but continues loading the other files.
      *
      * @param pair Pair of source files and associating identifier.
      * Multiple pairs can be provided as separate arguments.
@@ -293,8 +293,6 @@ export class AudioManager {
      * @param config  Optional parameter that will configure how the audio is played. Note that only the position
      * and volume settings will affect the playback.
      * @throws If the given ID does not have a buffer associated with it.
-     *
-     * @returns A Promise that resolves when the audio has started playing.
      */
     playOneShot(id: number, config?: PlayConfig) {
         const buffers = this._bufferCache[id];
@@ -310,7 +308,7 @@ export class AudioManager {
 
 
     /**
-     * Analogue to `play()` but waits until the user has interacted with the website.
+     * Same as `play()` but waits until the user has interacted with the website.
      *
      * @param id ID of the file that should be played.
      * @param config Optional parameter that will configure how the audio is played. Is no configuration provided,
@@ -335,7 +333,7 @@ export class AudioManager {
      *
      * @param sourceId Identifier of the audio source that should be stopped.
      * @param playId Optional parameter that specifies the exact audio that should be stopped.
-     * If not provided, all audio of the given sourceId will be stopped.
+     * If not provided, all playing instances of the given sourceId will be stopped.
      *
      * @note Obtain the playId from the play() method.
      * @see play
