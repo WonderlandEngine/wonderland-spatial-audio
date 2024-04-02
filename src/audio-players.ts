@@ -66,10 +66,10 @@ export class BufferPlayer extends PlayableNode {
         }
         this.bufferId = id;
         switch (config?.channel) {
-            case AudioChannel.MUSIC:
+            case AudioChannel.Music:
                 this._gainNode.connect(this._audioManager['_musicGain']);
                 break;
-            case AudioChannel.MASTER:
+            case AudioChannel.Master:
                 this._gainNode.connect(this._audioManager['_masterGain']);
                 break;
             default:
@@ -111,7 +111,7 @@ export class BufferPlayer extends PlayableNode {
         if (!this._isPlaying) return;
         this._reset();
         this._gainNode.disconnect();
-        this._audioManager.emitter.notify({id: this.bufferId, state: PlayState.STOPPED});
+        this._audioManager.emitter.notify({id: this.bufferId, state: PlayState.Stopped});
     }
 }
 

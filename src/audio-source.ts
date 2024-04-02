@@ -5,9 +5,9 @@ import {AudioChannel, AudioManager, PlayState} from './audio-manager.js';
 import {MIN_RAMP_TIME, MIN_VOLUME} from './audio-players.js';
 
 export enum PanningType {
-    NONE,
-    REGULAR,
-    HRTF,
+    None,
+    Regular,
+    Hrtf,
 }
 
 /**
@@ -93,15 +93,12 @@ export class AudioSource extends Component {
     @property.bool(false)
     autoplay!: boolean;
 
-    /** Select the panning method.
+    /**
+     * Select the panning method.
      *
-     * @note When setting this in code, use numbers or boolean values!
-     * - 0 / false, for no panning.
-     * - 1 / true, for regular panning.
-     * - 2 for HRTF spatial audio.
      * @warning Enabling HRTF (Head-Related Transfer Function) is computationally more intensive than regular panning!
      */
-    @property.enum(['none', 'panning', 'hrtf'], 1)
+    @property.enum(['none', 'panning', 'hrtf'], PanningType.Regular)
     spatial!: PanningType;
 
     /**
@@ -162,11 +159,11 @@ export class AudioSource extends Component {
      */
     async start() {
         if (this.src === '') {
-            throw 'audio-source: No audio source path provided!';
+            throw new Error('audio-source: No audio source path provided.');
         }
         this._gainNode.connect(_audioContext.destination);
         this._buffer = await addBufferToCache(this.src);
-        this.emitter.notify(PlayState.READY);
+        this.emitter.notify(PlayState.Ready);
         if (this.autoplay) {
             this.play();
         }
@@ -175,15 +172,15 @@ export class AudioSource extends Component {
     setAudioChannel(am: AudioManager, channel: AudioChannel) {
         this.stop();
         switch (channel) {
-            case AudioChannel.MUSIC:
+            case AudioChannel.Music:
                 this._gainNode.disconnect();
                 this._gainNode.connect(am['_musicGain']);
                 break;
-            case AudioChannel.SFX:
+            case AudioChannel.Sfx:
                 this._gainNode.disconnect();
                 this._gainNode.connect(am['_sfxGain']);
                 break;
-            case AudioChannel.MASTER:
+            case AudioChannel.Master:
                 this._gainNode.disconnect();
                 this._gainNode.connect(am['_masterGain']);
                 break;
@@ -220,7 +217,7 @@ export class AudioSource extends Component {
         if (!this.isStationary) {
             this.update = this._update.bind(this);
         }
-        this.emitter.notify(PlayState.PLAYING);
+        this.emitter.notify(PlayState.Playing);
     }
 
     /**
@@ -235,7 +232,7 @@ export class AudioSource extends Component {
         this._audioNode.disconnect();
         this._pannerNode.disconnect();
         this._audioNode = new AudioBufferSourceNode(_audioContext);
-        this.emitter.notify(PlayState.STOPPED);
+        this.emitter.notify(PlayState.Stopped);
     }
 
     /**
@@ -299,6 +296,20 @@ export class AudioSource extends Component {
         this._pannerNode.orientationZ.linearRampToValueAtTime(-oriVec[1], this._time);
     }
 
+    /**
+     * @deprecated Use {@link #volume} instead
+     */
+    set maxVolume(v: number) {
+        this.volume = v;
+    }
+
+    /**
+     * @deprecated Use {@link #volume} instead
+     */
+    get maxVolume() {
+        return this.volume;
+    }
+
     private _updateSettings() {
         this.object.getPositionWorld(posVec);
         this.object.getForwardWorld(oriVec);
@@ -310,7 +321,7 @@ export class AudioSource extends Component {
             maxDistance: this.maxDistance,
             refDistance: this.refDistance,
             rolloffFactor: this.rolloffFactor,
-            panningModel: this.spatial === 2 ? 'HRTF' : 'equalpower',
+            panningModel: this.spatial === PanningType.Hrtf ? 'HRTF' : 'equalpower',
             positionX: posVec[0],
             positionY: posVec[2],
             positionZ: -posVec[1],

@@ -14,11 +14,11 @@ import {
  */
 export enum AudioChannel {
     /** Intended for sound effects. Connects to Master AudioChannel. */
-    SFX,
+    Sfx,
     /** Intended for music. Connects to Master AudioChannel. */
-    MUSIC,
+    Music,
     /** Connects directly to output. */
-    MASTER,
+    Master,
 }
 
 /**
@@ -26,11 +26,11 @@ export enum AudioChannel {
  */
 export enum PlayState {
     /** The source has loaded and is ready to be played */
-    READY,
+    Ready,
     /** The source has started playing */
-    PLAYING,
+    Playing,
     /** The source has stopped */
-    STOPPED,
+    Stopped,
 }
 
 /**
@@ -73,12 +73,12 @@ export type PlayConfig = {
 /**
  * Default number of one-shot players.
  */
-export const DEF_ONESHT_PLR_COUNT = 16;
+export const DEF_ONESHOT_PLAYER_COUNT = 16;
 
 /**
  * Default number of regular players.
  */
-export const DEF_PLR_COUNT = 16;
+export const DEF_PLAYER_COUNT = 16;
 
 const SHIFT_AMOUNT = 16;
 const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
@@ -160,8 +160,8 @@ export class AudioManager {
      * Constructs a AudioManager.
      *
      * Uses the default amount of one-shot and regular players.
-     * @see DEF_ONESHT_PLR_COUNT
-     * @see DEF_PLR_COUNT
+     * @see DEF_ONESHOT_PLAYER_COUNT
+     * @see DEF_PLAYER_COUNT
      * @example
      * ```js
      * // AudioManager can't be constructed in a non-browser environment!
@@ -176,10 +176,10 @@ export class AudioManager {
         this._sfxGain.connect(this._masterGain);
         this._musicGain.connect(this._masterGain);
         this._masterGain.connect(_audioContext.destination);
-        this._oneShotCache = this._initOneShotCache(DEF_ONESHT_PLR_COUNT);
+        this._oneShotCache = this._initOneShotCache(DEF_ONESHOT_PLAYER_COUNT);
 
         /* Initialize buffer player cache */
-        for (let i = 0; i < DEF_PLR_COUNT; i++) {
+        for (let i = 0; i < DEF_PLAYER_COUNT; i++) {
             this._freePlayers[i] = new BufferPlayer(this);
         }
     }
@@ -190,7 +190,7 @@ export class AudioManager {
      * @param path Path to the audio files. Can either be a single string or a list of strings.
      * @param id Identifier for the given audio files.
      *
-     * @note Is there more than one-audio file available per id, on playback, they will be selected at random.
+     * @note Is there more than one audio file available per id, on playback, they will be selected at random.
      * This enables easy variation of the same sounds!
      *
      * @throws If negative ID was provided.
@@ -199,7 +199,7 @@ export class AudioManager {
      */
     async load(path: string[] | string, id: number) {
         if (id < 0) {
-            throw 'audio-manager: Negative IDs are not valid! Skipping ${path}';
+            throw new Error('audio-manager: Negative IDs are not valid! Skipping ${path}.');
         }
         const paths = Array.isArray(path) ? path : [path];
         if (!this._bufferCache[id]) {
@@ -214,7 +214,7 @@ export class AudioManager {
 
         /* Init the instanceCounter */
         this._instanceCounter[id] = 0;
-        this.emitter.notify({id: id, state: PlayState.READY});
+        this.emitter.notify({id: id, state: PlayState.Ready});
     }
 
     /**
@@ -222,20 +222,16 @@ export class AudioManager {
      *
      * @see load
      *
-     * @note Logs an error message to the console if one pair failed to load, but continues loading the other files.
-     *
      * @param pair Pair of source files and associating identifier.
      * Multiple pairs can be provided as separate arguments.
+     *
+     * @throws If negative ID was provided.
      *
      * @returns A Promise that resolves when all files are successfully loaded.
      */
     async loadBatch(...pair: [string[] | string, number][]) {
         for (const p of pair) {
-            try {
-                await this.load(p[0], p[1]);
-            } catch (e) {
-                console.error(e);
-            }
+            await this.load(p[0], p[1]);
         }
     }
 
@@ -258,14 +254,14 @@ export class AudioManager {
     play(id: number, config?: PlayConfig) {
         const buffer = this._bufferCache[id];
         if (!buffer) {
-            throw `audio-manager: No audio source is associated with identifier: ${id} !`;
+            throw new Error(`audio-manager: No audio source is associated with identifier: ${id}`);
         }
         if (!this._unlocked) {
             return -1;
         }
         const player = this._freePlayers.pop() || this._stopLowPriorityPlayer();
         if (!player) {
-            throw `audio-manager: All players are busy and no low priority player could be found to free up!`;
+            throw new Error(`audio-manager: All players are busy and no low priority player could be found to free up.`);
         }
 
         const unique_id = this._generateUniqueId(id);
@@ -273,7 +269,7 @@ export class AudioManager {
         this._busyPlayers.set(unique_id, player);
         player.priority = config?.priority || false;
         player.play(buffer, unique_id, config);
-        this.emitter.notify({id: unique_id, state: PlayState.PLAYING});
+        this.emitter.notify({id: unique_id, state: PlayState.Playing});
         return unique_id;
     }
 
@@ -297,13 +293,13 @@ export class AudioManager {
     playOneShot(id: number, config?: PlayConfig) {
         const buffers = this._bufferCache[id];
         if (!buffers) {
-            throw `audio-manager: No audio source is associated with identifier: ${id} !`;
+            throw new Error(`audio-manager: No audio source is associated with identifier: ${id}`);
         }
         const audioBuffer = buffers[Math.floor(Math.random() * buffers.length)];
         const player = this._oneShotCache[this._oneShotIndex];
         player.play(audioBuffer, config?.volume || DEF_VOL, config?.position);
         /* Advance cache pointer */
-        this._oneShotIndex = (this._oneShotIndex + 1) % DEF_ONESHT_PLR_COUNT;
+        this._oneShotIndex = (this._oneShotIndex + 1) % DEF_ONESHOT_PLAYER_COUNT;
     }
 
 
@@ -381,13 +377,13 @@ export class AudioManager {
         volume = Math.max(MIN_VOLUME, volume);
         time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, time);
         switch (channel) {
-            case AudioChannel.MUSIC:
+            case AudioChannel.Music:
                 this._musicGain.gain.linearRampToValueAtTime(volume, time);
                 break;
-            case AudioChannel.SFX:
+            case AudioChannel.Sfx:
                 this._sfxGain.gain.linearRampToValueAtTime(volume, time);
                 break;
-            case AudioChannel.MASTER:
+            case AudioChannel.Master:
                 this._masterGain.gain.linearRampToValueAtTime(volume, time);
                 break;
             default:
@@ -455,17 +451,17 @@ export class AudioManager {
         const id = this.getSourceIdFromPlayId(uniqueId);
         const buffer = this._bufferCache[id];
         if (!buffer) {
-            throw `audio-manager: No audio source is associated with identifier: ${id} !`;
+            throw new Error(`audio-manager: No audio source is associated with identifier: ${id}`);
         }
         const player = this._freePlayers.pop() || this._stopLowPriorityPlayer();
         if (!player) {
-            throw `audio-manager: All players are busy and no low priority player could be found to free up!`;
+            throw new Error(`audio-manager: All players are busy and no low priority player could be found to free up.`);
         }
 
         this._busyPlayers.set(uniqueId, player);
         player.priority = config?.priority || false;
         player.play(buffer, uniqueId, config);
-        this.emitter.notify({id: uniqueId, state: PlayState.PLAYING});
+        this.emitter.notify({id: uniqueId, state: PlayState.Playing});
     }
 
     private _generateUniqueId(id: number) {
@@ -523,6 +519,11 @@ class EmptyAudioManager {
 
 /**
  * Global instance of a AudioManager.
+ *
+ * @note
+ * To construct an AudioManager, the WebAudio API is needed. For non-browser environments, like during the packaging
+ * step of the wonderland editor, the globalAudioManager is set to an `EmptyAudioManager`.
+ * It enables the usage of `load()` and `loadBatch()` in top-level code.
  *
  * @warning
  * ⚠️ Only load() and loadBatch() can be used in top-level code ⚠️

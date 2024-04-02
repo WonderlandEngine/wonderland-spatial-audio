@@ -43,14 +43,7 @@ be available to attach to objects.
 Add an `audio-source` component to objects that should play sound. Set the `src`
 property to a URL in the `static` folder of your project.
 (E.g., for `static/sfx/sound.mp3` enter `sfx/sound.mp3`).
-If `spatial` is set to `none`, all settings below are ignored.
-
-- Setting the `spatial` setting in code can only be done using numbers or boolean:
-```js
-this.audio.spatial = 0 || false; // No panning
-this.audio.spatial = 1 || true;  // Regular panning
-this.audio.spatial = 2;          // HRFT spatial panning
-```
+If `spatial` is set to `None`, all settings below are ignored.
 
 - Changing the `volume` parameter will only take effect when calling the `play()` function. If the audio is already 
   playing, use `setVolumeDuringPlayback()` instead.
@@ -58,12 +51,8 @@ this.audio.spatial = 2;          // HRFT spatial panning
 ### AudioManager
 
 The `AudioManager` can be used to play audio from anywhere in your project! It is a way to conveniently 
-manage audio files. This package provides a global instance of the manager called `globalAudioManager`. To make use of 
-it, create 
-your own 
-identifiers and then load up the 
-manager 
-with your audio files:
+manage audio files. This package provides a global instance of the manager called `globalAudioManager`. 
+To make use of it, create your own identifiers and then load up the manager with your audio files:
 
 ```js
 enum MySounds {
@@ -101,9 +90,8 @@ onPress() {
 ```
 
 The `AudioManager` has three main channels: SFX, MUSIC and MASTER. Use these to group your audio and 
-control the 
-volume globally. On using `play()`, the respective channels can be selected via the `PlayConfig`. Be aware 
-though that `playOneShot()` will always use the SFX channel!
+control the volume globally. On using `play()`, the respective channels can be selected via the `PlayConfig`. 
+Be aware though that `playOneShot()` will always use the SFX channel!
 
 
 ## Considerations
