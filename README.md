@@ -83,15 +83,15 @@ onPress() {
         volume: 0.8,
         loop: true,
         position: posVec,
-        channel: AudioChannel.SFX,
+        channel: AudioChannel.Sfx,
         priority: false
     });
 }
 ```
 
-The `AudioManager` has three main channels: SFX, MUSIC and MASTER. Use these to group your audio and 
+The `AudioManager` has three main channels: Sfx, Music and Master. Use these to group your audio and 
 control the volume globally. On using `play()`, the respective channels can be selected via the `PlayConfig`. 
-Be aware though that `playOneShot()` will always use the SFX channel!
+Be aware though that `playOneShot()` will always use the Sfx channel!
 
 
 ## Considerations

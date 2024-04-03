@@ -113,8 +113,10 @@ const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
  * // AudioManager can't be constructed in a non-browser environment!
  * export const am = window.AudioContext ? new AudioManager() : null;
  *
- * am.load('path/to/click.wav', Sounds.Click);
- * am.load('path/to/gunshot.wav', Sounds.GunShot);
+ * if (am != null) {
+ *      am.load('path/to/click.wav', Sounds.Click);
+ *      am.load('path/to/gunshot.wav', Sounds.GunShot);
+ * }
  *
  * onPress() {
  *      am.play(Sounds.Click, {volume: 0.8, position: [0, 5, 1]});
