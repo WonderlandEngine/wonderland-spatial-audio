@@ -60,7 +60,7 @@ export class BufferPlayer extends PlayableNode {
         this._audioManager = audioManager;
     }
 
-    play(audioBuffers: AudioBuffer[], id: number, config?: PlayConfig) {
+    play(audioBuffer: AudioBuffer, id: number, config?: PlayConfig) {
         if (this._isPlaying) {
             this.stop();
         }
@@ -75,10 +75,9 @@ export class BufferPlayer extends PlayableNode {
             default:
                 this._gainNode.connect(this._audioManager['_sfxGain']);
         }
-        this._gainNode.gain.value = config?.volume || DEF_VOL;
-        const randomIndex = Math.floor(Math.random() * audioBuffers.length);
-        this._audioNode.buffer = audioBuffers[randomIndex];
-        this._audioNode.loop = config?.loop || false;
+        this._gainNode.gain.value = config?.volume ?? DEF_VOL;
+        this._audioNode.buffer = audioBuffer;
+        this._audioNode.loop = config?.loop ?? false;
         if (config?.position) {
             const position = config.position;
             this._pannerOptions.positionX = position[0];

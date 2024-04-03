@@ -71,6 +71,14 @@ export type PlayConfig = {
 };
 
 /**
+ * Specifies the function signature for the random selection of audio buffers.
+ * Use it to change the AudioManagers behaviour of selecting variations of the same sounds.
+ *
+ * @see randomBufferSelectFunction
+ */
+export type RandomBufferSelectFunction = (bufferList: AudioBuffer[]) => AudioBuffer;
+
+/**
  * Default number of one-shot players.
  */
 export const DEF_ONESHOT_PLAYER_COUNT = 16;
@@ -155,6 +163,10 @@ export class AudioManager {
 
     private _unlocked = false;
     private _autoplayStorage: [number, PlayConfig | undefined][] = [];
+
+    private  _selectRandomBuffer: RandomBufferSelectFunction = (bufferList) => {
+        return bufferList[Math.floor(Math.random() * bufferList.length)];
+    };
 
     /**
      * Constructs a AudioManager.
@@ -252,14 +264,14 @@ export class AudioManager {
      * emitter. If playback could not be started, an invalid playId is returned.
      */
     play(id: number, config?: PlayConfig) {
-        const buffer = this._bufferCache[id];
-        if (!buffer) {
+        const bufferList = this._bufferCache[id];
+        if (!bufferList) {
             throw new Error(`audio-manager: No audio source is associated with identifier: ${id}`);
         }
         if (!this._unlocked) {
             return -1;
         }
-        const player = this._freePlayers.pop() || this._stopLowPriorityPlayer();
+        const player = this._freePlayers.pop() ?? this._stopLowPriorityPlayer();
         if (!player) {
             throw new Error(`audio-manager: All players are busy and no low priority player could be found to free up.`);
         }
@@ -267,8 +279,8 @@ export class AudioManager {
         const unique_id = this._generateUniqueId(id);
 
         this._busyPlayers.set(unique_id, player);
-        player.priority = config?.priority || false;
-        player.play(buffer, unique_id, config);
+        player.priority = config?.priority ?? false;
+        player.play(this._selectRandomBuffer(bufferList), unique_id, config);
         this.emitter.notify({id: unique_id, state: PlayState.Playing});
         return unique_id;
     }
@@ -291,13 +303,12 @@ export class AudioManager {
      * @throws If the given ID does not have a buffer associated with it.
      */
     playOneShot(id: number, config?: PlayConfig) {
-        const buffers = this._bufferCache[id];
-        if (!buffers) {
+        const bufferList = this._bufferCache[id];
+        if (!bufferList) {
             throw new Error(`audio-manager: No audio source is associated with identifier: ${id}`);
         }
-        const audioBuffer = buffers[Math.floor(Math.random() * buffers.length)];
         const player = this._oneShotCache[this._oneShotIndex];
-        player.play(audioBuffer, config?.volume || DEF_VOL, config?.position);
+        player.play(this._selectRandomBuffer(bufferList), config?.volume ?? DEF_VOL, config?.position);
         /* Advance cache pointer */
         this._oneShotIndex = (this._oneShotIndex + 1) % DEF_ONESHOT_PLAYER_COUNT;
     }
@@ -434,6 +445,24 @@ export class AudioManager {
     }
 
     /**
+     * Sets the random buffer selection function.
+     *
+     * @param func Function that should be used to select the buffer.
+     * @see RandomBufferSelectFunction
+     *
+     * @example
+     * ```js
+     * globalAudioManager.randomBufferSelectFunction = (bufferList) => {
+     *   // This is the default implementation
+     *   return bufferList[Math.floor(Math.random() * bufferList.length)];
+     * };
+     * ```
+     */
+    set randomBufferSelectFunction(func: RandomBufferSelectFunction) {
+        this._selectRandomBuffer = func;
+    }
+
+    /**
      * Frees a player that was currently playing the given ID.
      *
      * @warning This is for internal use only, use at your own risk!
@@ -449,18 +478,18 @@ export class AudioManager {
 
     private _playWithUniqueId(uniqueId: number, config?: PlayConfig) {
         const id = this.getSourceIdFromPlayId(uniqueId);
-        const buffer = this._bufferCache[id];
-        if (!buffer) {
+        const bufferList = this._bufferCache[id];
+        if (!bufferList) {
             throw new Error(`audio-manager: No audio source is associated with identifier: ${id}`);
         }
-        const player = this._freePlayers.pop() || this._stopLowPriorityPlayer();
+        const player = this._freePlayers.pop() ?? this._stopLowPriorityPlayer();
         if (!player) {
             throw new Error(`audio-manager: All players are busy and no low priority player could be found to free up.`);
         }
 
         this._busyPlayers.set(uniqueId, player);
-        player.priority = config?.priority || false;
-        player.play(buffer, uniqueId, config);
+        player.priority = config?.priority ?? false;
+        player.play(this._selectRandomBuffer(bufferList), uniqueId, config);
         this.emitter.notify({id: uniqueId, state: PlayState.Playing});
     }
 
