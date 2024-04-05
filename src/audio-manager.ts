@@ -71,14 +71,6 @@ export type PlayConfig = {
 };
 
 /**
- * Specifies the function signature for the random selection of audio buffers.
- * Use it to change the AudioManagers behaviour of selecting variations of the same sounds.
- *
- * @see randomBufferSelectFunction
- */
-export type RandomBufferSelectFunction = (bufferList: AudioBuffer[]) => AudioBuffer;
-
-/**
  * Default number of one-shot players.
  */
 export const DEF_ONESHOT_PLAYER_COUNT = 16;
@@ -166,9 +158,8 @@ export class AudioManager {
     private _unlocked = false;
     private _autoplayStorage: [number, PlayConfig | undefined][] = [];
 
-    private  _selectRandomBuffer: RandomBufferSelectFunction = (bufferList) => {
-        return bufferList[Math.floor(Math.random() * bufferList.length)];
-    };
+    private _randomFunction: () => number = Math.random;
+
 
     /**
      * Constructs a AudioManager.
@@ -447,21 +438,17 @@ export class AudioManager {
     }
 
     /**
-     * Sets the random buffer selection function.
+     * Sets the random function the manager will use for selecting buffers.
      *
-     * @param func Function that should be used to select the buffer.
-     * @see RandomBufferSelectFunction
-     *
-     * @example
-     * ```js
-     * globalAudioManager.randomBufferSelectFunction = (bufferList) => {
-     *   // This is the default implementation
-     *   return bufferList[Math.floor(Math.random() * bufferList.length)];
-     * };
-     * ```
+     * @note Default random function is Math.random()
+     * @param func Function that should be used for select the buffer.
      */
-    set randomBufferSelectFunction(func: RandomBufferSelectFunction) {
-        this._selectRandomBuffer = func;
+    set randomBufferSelectFunction(func: () => number) {
+        this._randomFunction = func;
+    }
+
+    private _selectRandomBuffer(bufferList: AudioBuffer[]) {
+        return bufferList[Math.floor(this._randomFunction() * bufferList.length)];
     }
 
     /**
