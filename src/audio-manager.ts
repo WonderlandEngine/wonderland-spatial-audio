@@ -31,6 +31,15 @@ export enum PlayState {
     Playing,
     /** The source has stopped */
     Stopped,
+    /** The source has paused */
+    Paused,
+}
+
+export enum ManagerState {
+    None,
+    Loading,
+    Playing,
+    Paused,
 }
 
 /**
@@ -160,6 +169,8 @@ export class AudioManager {
 
     private _randomFunction: () => number = Math.random;
 
+    private _state = ManagerState.None;
+
 
     /**
      * Constructs a AudioManager.
@@ -272,9 +283,18 @@ export class AudioManager {
         const unique_id = this._generateUniqueId(id);
 
         this._busyPlayers.set(unique_id, player);
+        
+        /* Decode playConfig */
         player.priority = config?.priority ?? false;
-        player.play(this._selectRandomBuffer(bufferList), unique_id, config);
-        this.emitter.notify({id: unique_id, state: PlayState.Playing});
+        player.callerID = unique_id;
+        player.buffer = this._selectRandomBuffer(bufferList);
+        player.looping = config?.loop ?? false;
+        player.position = config?.position;
+        player.playOffset = 0; // @todo: Expose this in PlayConfig
+        player.channel = config?.channel ?? AudioChannel.Sfx;
+        player.volume = config?.volume ?? DEF_VOL;
+
+        player.play();
         return unique_id;
     }
 
@@ -344,10 +364,37 @@ export class AudioManager {
             return;
         }
         this._busyPlayers.forEach((player) => {
-            if (player.bufferId >> SHIFT_AMOUNT === sourceId) {
+            if (player.callerID >> SHIFT_AMOUNT === sourceId) {
                 player.stopAndFree();
             }
         });
+    }
+
+    pauseAll() {
+        this._busyPlayers.forEach((player) => {
+            player.pause();
+        });
+
+    }
+
+    pause(playId: number) {
+        if (playId) {
+            this._busyPlayers.get(playId)?.pause();
+            return;
+        }
+    }
+
+    resumeAll() {
+        this._busyPlayers.forEach((player) => {
+            player.resume();
+        });
+    }
+
+    resume(playId: number) {
+        if (playId) {
+            this._busyPlayers.get(playId)?.resume();
+            return;
+        }
     }
 
     /**
@@ -368,6 +415,7 @@ export class AudioManager {
             value.stopAndFree();
         });
     }
+
 
     /**
      * Sets the volume of the given audio channel.
@@ -477,9 +525,18 @@ export class AudioManager {
         }
 
         this._busyPlayers.set(uniqueId, player);
+
+        /* Decode playConfig */
         player.priority = config?.priority ?? false;
-        player.play(this._selectRandomBuffer(bufferList), uniqueId, config);
-        this.emitter.notify({id: uniqueId, state: PlayState.Playing});
+        player.callerID = uniqueId;
+        player.buffer = this._selectRandomBuffer(bufferList);
+        player.looping = config?.loop ?? false;
+        player.position = config?.position;
+        player.playOffset = 0; // @todo: Expose this in PlayConfig
+        player.channel = config?.channel ?? AudioChannel.Sfx;
+        player.volume = config?.volume ?? DEF_VOL;
+
+        player.play();
     }
 
     private _generateUniqueId(id: number) {

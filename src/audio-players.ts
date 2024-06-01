@@ -25,28 +25,40 @@ const DEFAULT_PANNER_CONFIG: PannerOptions = {
     orientationZ: 1,
 };
 
+type Player = {
+}
+
 class PlayableNode {
     public _gainNode = new GainNode(_audioContext);
     public _pannerNode = new PannerNode(_audioContext, DEFAULT_PANNER_CONFIG);
     public _audioNode = new AudioBufferSourceNode(_audioContext);
     public _pannerOptions = DEFAULT_PANNER_CONFIG;
-    public _isPlaying: boolean = false;
+    _playState = PlayState.Ready;
 
     constructor() {}
 
     _reset() {
-        this._isPlaying = false;
         this._audioNode.onended = null;
         this._audioNode.stop();
         this._audioNode.disconnect();
         this._pannerNode.disconnect();
         this._audioNode = new AudioBufferSourceNode(_audioContext);
+        this._playState = PlayState.Stopped;
     }
 }
 
 export class BufferPlayer extends PlayableNode {
-    public bufferId = -1;
-    public priority = false;
+
+    callerID = -1;
+    buffer: AudioBuffer | undefined;
+    looping = false;
+    position: Float32Array | undefined;
+    priority = false;
+    playOffset = 0;
+    channel = AudioChannel.Sfx;
+    volume = DEF_VOL;
+    _timeStamp = 0;
+
     private readonly _audioManager: AudioManager;
 
     /**
@@ -60,12 +72,11 @@ export class BufferPlayer extends PlayableNode {
         this._audioManager = audioManager;
     }
 
-    play(audioBuffer: AudioBuffer, id: number, config?: PlayConfig) {
-        if (this._isPlaying) {
+    play() {
+        if (this._playState === PlayState.Playing) {
             this.stop();
         }
-        this.bufferId = id;
-        switch (config?.channel) {
+        switch (this.channel) {
             case AudioChannel.Music:
                 this._gainNode.connect(this._audioManager['_musicGain']);
                 break;
@@ -75,14 +86,14 @@ export class BufferPlayer extends PlayableNode {
             default:
                 this._gainNode.connect(this._audioManager['_sfxGain']);
         }
-        this._gainNode.gain.value = config?.volume ?? DEF_VOL;
-        this._audioNode.buffer = audioBuffer;
-        this._audioNode.loop = config?.loop ?? false;
-        if (config?.position) {
-            const position = config.position;
-            this._pannerOptions.positionX = position[0];
-            this._pannerOptions.positionY = position[2];
-            this._pannerOptions.positionZ = -position[1];
+        this._gainNode.gain.value = this.volume;
+        if (this.buffer) this._audioNode.buffer = this.buffer;
+        else return; // @todo: return something usefull
+        this._audioNode.loop = this.looping;
+        if (this.position) {
+            this._pannerOptions.positionX = this.position[0];
+            this._pannerOptions.positionY = this.position[2];
+            this._pannerOptions.positionZ = -this.position[1];
             /* This is a workaround! We cant re-use panner nodes because they don't update fast enough when
              reconnecting */
             this._pannerNode = new PannerNode(_audioContext, this._pannerOptions);
@@ -90,9 +101,15 @@ export class BufferPlayer extends PlayableNode {
         } else {
             this._audioNode.connect(this._gainNode);
         }
-        this._audioNode.start();
+        this._audioNode.start(0, this.playOffset);
+        this._timeStamp = _audioContext.currentTime - this.playOffset;
         this._audioNode.onended = () => this.stopAndFree();
-        this._isPlaying = true;
+        this._playState = PlayState.Playing;
+        this.emitStateChange();
+    }
+
+    emitStateChange() {
+        this._audioManager.emitter.notify({id: this.callerID, state: this._playState });
     }
 
     /**
@@ -100,17 +117,30 @@ export class BufferPlayer extends PlayableNode {
      */
     stopAndFree() {
         this.stop();
-        this._audioManager._freeUpBusyPlayer(this.bufferId);
+        this._audioManager._freeUpBusyPlayer(this.callerID);
     }
 
     /**
      * Stops current playback and sends notification on the audio managers emitter.
      */
     stop() {
-        if (!this._isPlaying) return;
+        if (this._playState === PlayState.Stopped) return;
         this._reset();
         this._gainNode.disconnect();
-        this._audioManager.emitter.notify({id: this.bufferId, state: PlayState.Stopped});
+        this.emitStateChange();
+    }
+
+    pause() {
+        if (this._playState !== PlayState.Playing) return;
+        this.playOffset = _audioContext.currentTime - this._timeStamp;
+        this._reset();
+        this._playState = PlayState.Paused;
+        this.emitStateChange();
+    }
+
+    resume() {
+        if (this._playState !== PlayState.Paused) return;
+        this.play();
     }
 }
 
@@ -129,7 +159,7 @@ export class OneShotPlayer extends PlayableNode {
     }
 
     play(audioBuffer: AudioBuffer, vol: number, position?: Float32Array) {
-        if (this._isPlaying) {
+        if (this._playState === PlayState.Playing) {
             this.stop();
         }
         this._gainNode.gain.value = Math.max(MIN_VOLUME, vol);
@@ -147,11 +177,11 @@ export class OneShotPlayer extends PlayableNode {
         }
         this._audioNode.onended = () => this.stop();
         this._audioNode.start();
-        this._isPlaying = true;
+        this._playState = PlayState.Playing;
     }
 
     stop() {
-        if (!this._isPlaying) return;
+        if (this._playState !== PlayState.Playing) return;
         this._reset();
     }
 }
