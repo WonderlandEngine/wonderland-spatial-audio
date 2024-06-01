@@ -1,5 +1,5 @@
 import {_audioContext} from './audio-listener.js';
-import {AudioChannel, AudioManager, PlayConfig, PlayState} from './audio-manager.js';
+import {AudioChannel, AudioManager, PlayState} from './audio-manager.js';
 
 /* Ramp times of 0 cause a click, 5 ms should be sufficient */
 export const MIN_RAMP_TIME = 5 / 1000;
@@ -25,30 +25,7 @@ const DEFAULT_PANNER_CONFIG: PannerOptions = {
     orientationZ: 1,
 };
 
-type Player = {
-}
-
-class PlayableNode {
-    public _gainNode = new GainNode(_audioContext);
-    public _pannerNode = new PannerNode(_audioContext, DEFAULT_PANNER_CONFIG);
-    public _audioNode = new AudioBufferSourceNode(_audioContext);
-    public _pannerOptions = DEFAULT_PANNER_CONFIG;
-    _playState = PlayState.Ready;
-
-    constructor() {}
-
-    _reset() {
-        this._audioNode.onended = null;
-        this._audioNode.stop();
-        this._audioNode.disconnect();
-        this._pannerNode.disconnect();
-        this._audioNode = new AudioBufferSourceNode(_audioContext);
-        this._playState = PlayState.Stopped;
-    }
-}
-
-export class BufferPlayer extends PlayableNode {
-
+export class BufferPlayer {
     callerID = -1;
     buffer: AudioBuffer | undefined;
     looping = false;
@@ -57,6 +34,12 @@ export class BufferPlayer extends PlayableNode {
     playOffset = 0;
     channel = AudioChannel.Sfx;
     volume = DEF_VOL;
+
+    _gainNode = new GainNode(_audioContext);
+    _pannerNode = new PannerNode(_audioContext, DEFAULT_PANNER_CONFIG);
+    _audioNode = new AudioBufferSourceNode(_audioContext);
+    _pannerOptions = DEFAULT_PANNER_CONFIG;
+    _playState = PlayState.Ready;
     _timeStamp = 0;
 
     private readonly _audioManager: AudioManager;
@@ -68,7 +51,6 @@ export class BufferPlayer extends PlayableNode {
      * @param audioManager Manager that manages this player.
      */
     constructor(audioManager: AudioManager) {
-        super();
         this._audioManager = audioManager;
     }
 
@@ -103,21 +85,13 @@ export class BufferPlayer extends PlayableNode {
         }
         this._audioNode.start(0, this.playOffset);
         this._timeStamp = _audioContext.currentTime - this.playOffset;
-        this._audioNode.onended = () => this.stopAndFree();
+        this._audioNode.onended = () => this.stop();
         this._playState = PlayState.Playing;
-        this.emitStateChange();
+        this.emitState();
     }
 
-    emitStateChange() {
-        this._audioManager.emitter.notify({id: this.callerID, state: this._playState });
-    }
-
-    /**
-     * Same as stop() but additionally calls free on the audio manager, so that it is available again.
-     */
-    stopAndFree() {
-        this.stop();
-        this._audioManager._freeUpBusyPlayer(this.callerID);
+    emitState() {
+        this._audioManager.emitter.notify({id: this.callerID, state: this._playState});
     }
 
     /**
@@ -125,9 +99,13 @@ export class BufferPlayer extends PlayableNode {
      */
     stop() {
         if (this._playState === PlayState.Stopped) return;
+        // @todo: Test if this gets called directly
         this._reset();
         this._gainNode.disconnect();
-        this.emitStateChange();
+        if (this.priority) {
+            this._audioManager._returnPriorityPlayer(this);
+        }
+        this.emitState();
     }
 
     pause() {
@@ -135,53 +113,20 @@ export class BufferPlayer extends PlayableNode {
         this.playOffset = _audioContext.currentTime - this._timeStamp;
         this._reset();
         this._playState = PlayState.Paused;
-        this.emitStateChange();
+        this.emitState();
     }
 
     resume() {
         if (this._playState !== PlayState.Paused) return;
         this.play();
     }
-}
 
-export class OneShotPlayer extends PlayableNode {
-    private readonly _audioManager: AudioManager;
-    /**
-     * Constructs a OneShotPlayer.
-     *
-     * @warning This is for internal use only. OneShotPlayers's should only be created and used inside the AudioManager.
-     * @param audioManager Manager that manages this player.
-     */
-    constructor(audioManager: AudioManager) {
-        super();
-        this._audioManager = audioManager;
-        this._gainNode.connect(this._audioManager['_sfxGain']);
-    }
-
-    play(audioBuffer: AudioBuffer, vol: number, position?: Float32Array) {
-        if (this._playState === PlayState.Playing) {
-            this.stop();
-        }
-        this._gainNode.gain.value = Math.max(MIN_VOLUME, vol);
-        this._audioNode.buffer = audioBuffer;
-        if (!position) {
-            this._audioNode.connect(this._gainNode);
-        } else {
-            this._pannerOptions.positionX = position[0];
-            this._pannerOptions.positionY = position[2];
-            this._pannerOptions.positionZ = -position[1];
-            /* This is a workaround!. We cant re-use panner nodes because they don't update fast enough when
-             reconnecting */
-            this._pannerNode = new PannerNode(_audioContext, this._pannerOptions);
-            this._audioNode.connect(this._pannerNode).connect(this._gainNode);
-        }
-        this._audioNode.onended = () => this.stop();
-        this._audioNode.start();
-        this._playState = PlayState.Playing;
-    }
-
-    stop() {
-        if (this._playState !== PlayState.Playing) return;
-        this._reset();
+    _reset() {
+        this._audioNode.onended = null;
+        this._audioNode.stop();
+        this._audioNode.disconnect();
+        this._pannerNode.disconnect();
+        this._audioNode = new AudioBufferSourceNode(_audioContext);
+        this._playState = PlayState.Stopped;
     }
 }
