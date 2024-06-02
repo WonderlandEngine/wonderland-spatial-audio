@@ -528,7 +528,7 @@ export class AudioManager {
     }
 
     /**
-     * Gets the current amount of free regular players in the audio manager.
+     * Gets the current amount of free players in the audio manager.
      *
      * @note Use this to check how many resources your current project is using.
      */
