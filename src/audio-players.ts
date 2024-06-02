@@ -26,20 +26,25 @@ const DEFAULT_PANNER_CONFIG: PannerOptions = {
 };
 
 export class BufferPlayer {
-    callerID = -1;
-    buffer: AudioBuffer | undefined;
+    playId = -1;
+    buffer: AudioBuffer = _audioContext!.createBuffer(
+        1,
+        _audioContext!.sampleRate,
+        _audioContext!.sampleRate
+    );
     looping = false;
     position: Float32Array | undefined;
     priority = false;
     playOffset = 0;
     channel = AudioChannel.Sfx;
     volume = DEF_VOL;
+    oneShot = false;
 
     _gainNode = new GainNode(_audioContext);
     _pannerNode = new PannerNode(_audioContext, DEFAULT_PANNER_CONFIG);
     _audioNode = new AudioBufferSourceNode(_audioContext);
     _pannerOptions = DEFAULT_PANNER_CONFIG;
-    _playState = PlayState.Ready;
+    _playState = PlayState.Stopped;
     _timeStamp = 0;
 
     private readonly _audioManager: AudioManager;
@@ -69,8 +74,7 @@ export class BufferPlayer {
                 this._gainNode.connect(this._audioManager['_sfxGain']);
         }
         this._gainNode.gain.value = this.volume;
-        if (this.buffer) this._audioNode.buffer = this.buffer;
-        else return; // @todo: return something usefull
+        this._audioNode.buffer = this.buffer;
         this._audioNode.loop = this.looping;
         if (this.position) {
             this._pannerOptions.positionX = this.position[0];
@@ -91,7 +95,7 @@ export class BufferPlayer {
     }
 
     emitState() {
-        this._audioManager.emitter.notify({id: this.callerID, state: this._playState});
+        this._audioManager.emitter.notify({id: this.playId, state: this._playState});
     }
 
     /**
@@ -99,19 +103,18 @@ export class BufferPlayer {
      */
     stop() {
         if (this._playState === PlayState.Stopped) return;
-        // @todo: Test if this gets called directly
-        this._reset();
-        this._gainNode.disconnect();
+        this._resetWebAudioNodes();
         if (this.priority) {
             this._audioManager._returnPriorityPlayer(this);
         }
+        this._playState = PlayState.Stopped;
         this.emitState();
     }
 
     pause() {
         if (this._playState !== PlayState.Playing) return;
         this.playOffset = _audioContext.currentTime - this._timeStamp;
-        this._reset();
+        this._resetWebAudioNodes();
         this._playState = PlayState.Paused;
         this.emitState();
     }
@@ -121,12 +124,12 @@ export class BufferPlayer {
         this.play();
     }
 
-    _reset() {
+    _resetWebAudioNodes() {
         this._audioNode.onended = null;
         this._audioNode.stop();
         this._audioNode.disconnect();
         this._pannerNode.disconnect();
+        this._gainNode.disconnect();
         this._audioNode = new AudioBufferSourceNode(_audioContext);
-        this._playState = PlayState.Stopped;
     }
 }

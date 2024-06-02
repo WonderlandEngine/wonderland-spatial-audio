@@ -19,7 +19,7 @@ export enum AudioChannel {
  * Enumerates the possible states of playback for audio sources.
  */
 export enum PlayState {
-    /** The source has loaded and is ready to be played */
+    /** The source is ready to be played */
     Ready,
     /** The source has started playing */
     Playing,
@@ -61,13 +61,16 @@ export type PlayConfig = {
      * available.
      */
     priority?: boolean;
+    /** Defines the offset in seconds on where to start playing the audio */
+    playOffset?: number;
+    /** Marks the playback as being a one-shot, @deprecated since >1.2.0 */
+    oneShot?: boolean;
 };
 
 /**
  * Default number of players.
  */
 export const DEF_PLAYER_COUNT = 32;
-
 const SHIFT_AMOUNT = 16;
 const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
 
@@ -123,6 +126,14 @@ export class AudioManager {
      */
     readonly emitter = new Emitter<[PlayStateWithID]>();
 
+    /**
+     * Sets the random function the manager will use for selecting buffers.
+     *
+     * @note Default random function is Math.random()
+     * @param func Function that should be used for select the buffer.
+     */
+    randomBufferSelectFunction: () => number = Math.random;
+
     /* Cache for decoded audio buffers */
     private _bufferCache: (AudioBuffer[] | undefined)[] = [];
 
@@ -140,8 +151,6 @@ export class AudioManager {
 
     private _unlocked = false;
     private _autoplayStorage: [number, PlayConfig | undefined][] = [];
-
-    private _randomFunction: () => number = Math.random;
 
     /**
      * Constructs a AudioManager.
@@ -265,18 +274,15 @@ export class AudioManager {
         } else {
             player.priority = false;
         }
-        player.callerID = unique_id;
+        player.playId = unique_id;
         player.buffer = this._selectRandomBuffer(bufferList);
         player.looping = config?.loop ?? false;
         player.position = config?.position;
-        player.playOffset = 0; // @todo: Expose this in PlayConfig
+        player.playOffset = config?.playOffset ?? 0;
         player.channel = config?.channel ?? AudioChannel.Sfx;
         player.volume = config?.volume ?? DEF_VOL;
 
         player.play();
-        console.log(
-            `Free players: ${this._amountOfFreePlayers} Total players: ${this._playerCache.length}`
-        );
         return unique_id;
     }
 
@@ -306,11 +312,12 @@ export class AudioManager {
         } else {
             player.priority = false;
         }
-        player.callerID = uniqueId;
+        player.playId = uniqueId;
         player.buffer = this._selectRandomBuffer(bufferList);
         player.looping = config?.loop ?? false;
+        player.oneShot = config?.oneShot ?? false;
         player.position = config?.position;
-        player.playOffset = 0; // @todo: Expose this in PlayConfig
+        player.playOffset = config?.playOffset ?? 0;
         player.channel = config?.channel ?? AudioChannel.Sfx;
         player.volume = config?.volume ?? DEF_VOL;
 
@@ -337,8 +344,10 @@ export class AudioManager {
      * @deprecated since > 1.2.0, use play() instead.
      */
     playOneShot(id: number, config?: PlayConfig) {
-        if (config?.loop) config.loop = false;
-        if (config?.priority) config.priority = false;
+        if (!config) this.play(id, {oneShot: true});
+        config!.loop = false;
+        config!.priority = false;
+        config!.oneShot = true;
         this.play(id, config);
     }
 
@@ -346,7 +355,10 @@ export class AudioManager {
         if (this._amountOfFreePlayers < 1) return;
         /* Advance cache pointer */
         this._playerCacheIndex = (this._playerCacheIndex + 1) % this._amountOfFreePlayers;
-        return this._playerCache[this._playerCacheIndex];
+        const player = this._playerCache[this._playerCacheIndex];
+        /* Make player available if unavailable */
+        player.stop();
+        return player;
     }
 
     /**
@@ -381,7 +393,7 @@ export class AudioManager {
      */ // @todo jonathan: Now it works like it always should have. Is this fine for backwards compat?
     stop(playId: number, sourceId?: number) {
         this._playerCache.forEach((player) => {
-            if (player.callerID === playId) {
+            if (player.playId === playId) {
                 player.stop();
                 return;
             }
@@ -395,7 +407,7 @@ export class AudioManager {
      */
     pause(playId: number) {
         this._playerCache.forEach((player) => {
-            if (player.callerID === playId) {
+            if (player.playId === playId) {
                 player.pause();
                 return;
             }
@@ -409,7 +421,7 @@ export class AudioManager {
      */
     resume(playId: number) {
         this._playerCache.forEach((player) => {
-            if (player.callerID === playId) {
+            if (player.playId === playId) {
                 player.resume();
                 return;
             }
@@ -421,7 +433,12 @@ export class AudioManager {
      * @deprecated since >1.2.0, use stop() instead.
      */
     stopOneShots() {
-        // @todo jonathan: How is this handled the best? Log a Warning?
+        this._playerCache.forEach((player) => {
+            if (player.oneShot) {
+                player.stop();
+                return;
+            }
+        });
     }
 
     /**
@@ -519,18 +536,10 @@ export class AudioManager {
         return this._amountOfFreePlayers;
     }
 
-    /**
-     * Sets the random function the manager will use for selecting buffers.
-     *
-     * @note Default random function is Math.random()
-     * @param func Function that should be used for select the buffer.
-     */
-    set randomBufferSelectFunction(func: () => number) {
-        this._randomFunction = func;
-    }
-
     private _selectRandomBuffer(bufferList: AudioBuffer[]) {
-        return bufferList[Math.floor(this._randomFunction() * bufferList.length)];
+        return bufferList[
+            Math.floor(this.randomBufferSelectFunction() * bufferList.length)
+        ];
     }
 
     private _generateUniqueId(id: number) {
