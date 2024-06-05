@@ -392,6 +392,7 @@ export class AudioManager {
      *
      * @note Obtain the playId from the play() method.
      * @see play
+     */
     stop(playId: number) {
         this._playerCache.forEach((player) => {
             if (player.playId === playId) {
