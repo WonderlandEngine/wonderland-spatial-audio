@@ -113,7 +113,8 @@ export class BufferPlayer {
 
     pause() {
         if (this._playState !== PlayState.Playing) return;
-        this.playOffset = (_audioContext.currentTime - this._timeStamp) % this.buffer.duration;
+        this.playOffset =
+            (_audioContext.currentTime - this._timeStamp) % this.buffer.duration;
         this._resetWebAudioNodes();
         this._playState = PlayState.Paused;
         this.emitState();

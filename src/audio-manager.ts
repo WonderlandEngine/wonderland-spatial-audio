@@ -351,6 +351,11 @@ export class AudioManager {
         this.play(id, config);
     }
 
+    /**
+     * Advances the _playerCacheIndex and stops the player on that position.
+     *
+     * @returns A BufferPlayer with PlayState.Stopped, or undefined if no player can be stopped.
+     */
     _getAvailablePlayer(): BufferPlayer | undefined {
         if (this._amountOfFreePlayers < 1) return;
         /* Advance cache pointer */
@@ -383,15 +388,11 @@ export class AudioManager {
     /**
      * Stops the audio associated with the given ID.
      *
-     * @warning This does not work for one-shots!
-     *
      * @param playId Specifies the exact audio that should be stopped.
-     * @param sourceId Optional paramter, left for backwards compatablity. Doesnt do anything
      *
      * @note Obtain the playId from the play() method.
      * @see play
-     */ // @todo jonathan: Now it works like it always should have. Is this fine for backwards compat?
-    stop(playId: number, sourceId?: number) {
+    stop(playId: number) {
         this._playerCache.forEach((player) => {
             if (player.playId === playId) {
                 player.stop();
@@ -430,7 +431,7 @@ export class AudioManager {
 
     /**
      * Stops playback of all one-shot players.
-     * @deprecated since >1.2.0, use stop() instead.
+     * @deprecated since >1.2.0, use  regular play() with stop() instead.
      */
     stopOneShots() {
         this._playerCache.forEach((player) => {
