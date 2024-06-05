@@ -66,11 +66,10 @@ globalAudioManager.load(['sfx/zombie_01.mp3', 'sfx/zombie_02.mp3'], MySounds.Zom
 ```
 ⚠️ Only load() and loadBatch() can be used in top-level code!
 
-There are multiple ways of playing an audio file that has loaded:
+There are two ways of playing an audio file that has loaded:
 
 ```js
-globalAudioManager.play(MySounds.Gunshot);          // Standard way, returns an ID with which audio can be stopped.
-globalAudioManager.playOneShot(MySounds.Gunshot);   // Plays the audio for one time only.
+globalAudioManager.play(MySounds.Gunshot);          // Standard way, returns an ID with which audio can be stopped or paused.
 globalAudioManager.autoplay(MySounds.Gunshot);      // Plays the audio as soon as the user has interacted with the site.
 ```
 
@@ -91,8 +90,6 @@ onPress() {
 
 The `AudioManager` has three main channels: Sfx, Music and Master. Use these to group your audio and 
 control the volume globally. On using `play()`, the respective channels can be selected via the `PlayConfig`. 
-Be aware though that `playOneShot()` will always use the Sfx channel!
-
 
 ## Considerations
 
