@@ -1,4 +1,4 @@
-![build](https://github.com/WonderlandEngine/wonderland-engine-examples/actions/workflows/github-pages.yml/badge.svg)
+![build](https://github.com/WonderlandEngine/wonderland-spatial-audio/actions/workflows/github-pages.yml/badge.svg)
 
 # Wonderland Spatial Audio
 
