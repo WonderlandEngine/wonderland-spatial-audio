@@ -50,8 +50,8 @@ export type PlayConfig = {
     /**
      * Sets the position of the audio source and makes it spatial.
      *
-     * @note Panned audio will always use HRTF for spatialization.
-     * @warning For this to work correctly, the audio-listener needs to be set up!
+     * @remarks Panned audio will always use HRTF for spatialization.
+     * For this to work correctly, the audio-listener needs to be set up!
      */
     position?: Float32Array;
     /** Sets the channel on which the audio will be played. */
@@ -68,7 +68,7 @@ export type PlayConfig = {
 };
 
 /**
- * Default number of players.
+ * Default number of internal players.
  */
 export const DEF_PLAYER_COUNT = 32;
 const SHIFT_AMOUNT = 16;
@@ -81,7 +81,7 @@ const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
  * The AudioManager handles audio files and players, offering control over playback on three distinct channels.
  * @see AudioChannel
  *
- * @note The AudioManager is able to play audio with spatial positioning. Keep in mind that for this to work
+ * @remarks The AudioManager is able to play audio with spatial positioning. Keep in mind that for this to work
  * correctly, you will need to set up the `audio-listener` component!
  *
  * @example
@@ -107,7 +107,7 @@ const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
 export class AudioManager {
     /** The emitter will notify all listeners about the PlayState of a unique ID.
      *
-     * @note
+     * @remarks
      * - READY will be emitted if all sources of a given source ID have loaded.
      * - PLAYING / STOPPED / PAUSED are only emitted for play IDs that are returned by the play() method.
      * - If you want to check the status for a source ID, convert the play ID of the message using the
@@ -129,7 +129,7 @@ export class AudioManager {
     /**
      * Sets the random function the manager will use for selecting buffers.
      *
-     * @note Default random function is Math.random()
+     * @remarks Default random function is Math.random()
      * @param func Function that should be used for select the buffer.
      */
     randomBufferSelectFunction: () => number = Math.random;
@@ -183,7 +183,7 @@ export class AudioManager {
      * @param path Path to the audio files. Can either be a single string or a list of strings.
      * @param id Identifier for the given audio files.
      *
-     * @note Is there more than one audio file available per id, on playback, they will be selected at random.
+     * @remarks Is there more than one audio file available per id, on playback, they will be selected at random.
      * This enables easy variation of the same sounds!
      *
      * @throws If negative ID was provided.
@@ -235,7 +235,7 @@ export class AudioManager {
      * @param config Optional parameter that will configure how the audio is played. Is no configuration provided,
      * the audio will play at volume 1.0, without panning and on the SFX channel, priority set to false.
      *
-     * @note If the 'priority' parameter is set to true, the audio playback will not be interrupted
+     * @remarks If the 'priority' parameter is set to true, the audio playback will not be interrupted
      * to allocate a player in case all players are currently occupied. If 'priority' is set to false (default),
      * playback may be interrupted to allocate a player for a new 'play()' call.
      *
@@ -327,7 +327,7 @@ export class AudioManager {
     /**
      * Plays the audio file associated with the given ID until it naturally ends.
      *
-     * @note
+     * @remarks
      * - IDs can be triggered as often as there are one-shot players in the AudioManager.
      * - One shots work with First-In-First-Out principle. If all players are occupied, the manager will stop the
      *   one that started playing first, to free up a player for the new ID.
@@ -390,7 +390,7 @@ export class AudioManager {
      *
      * @param playId Specifies the exact audio that should be stopped.
      *
-     * @note Obtain the playId from the play() method.
+     * @remarks Obtain the playId from the play() method.
      * @see play
      */
     stop(playId: number) {
@@ -532,7 +532,7 @@ export class AudioManager {
     /**
      * Gets the current amount of free players in the audio manager.
      *
-     * @note Use this to check how many resources your current project is using.
+     * @remarks Use this to check how many resources your current project is using.
      */
     get amountOfFreePlayers() {
         return this._amountOfFreePlayers;
@@ -599,7 +599,7 @@ class EmptyAudioManager {
 /**
  * Global instance of a AudioManager.
  *
- * @note
+ * @remarks
  * To construct an AudioManager, the WebAudio API is needed. For non-browser environments, like during the packaging
  * step of the wonderland editor, the globalAudioManager is set to an `EmptyAudioManager`.
  * It enables the usage of `load()` and `loadBatch()` in top-level code.

@@ -78,7 +78,7 @@ export class AudioSource extends Component {
     /**
      * Volume of the audio source.
      *
-     * @note This will only take effect audio that has not started playing yet. Is the audio already playing, use
+     * @remarks This will only take effect audio that has not started playing yet. Is the audio already playing, use
      * setVolumeDuringPlayback()
      * @see setVolumeDuringPlayback
      */
@@ -192,7 +192,7 @@ export class AudioSource extends Component {
     /**
      * Plays the audio associated with this audio src.
      *
-     * @note Is this audio-source currently playing, playback will be restarted.
+     * @remarks Is this audio-source currently playing, playback will be restarted.
      */
     async play() {
         if (this._isPlaying) {

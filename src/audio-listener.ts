@@ -23,7 +23,7 @@ export {_audioContext};
  * Unlocks the WebAudio AudioContext.
  *
  * @returns a promise that fulfills when the audioContext resumes.
- * @note WebAudio AudioContext only resumes on user interaction.
+ * @remarks WebAudio AudioContext only resumes on user interaction.
  * @warning This is for internal use only, use at own risk!
  */
 export async function _unlockAudioContext(): Promise<void> {
@@ -49,7 +49,7 @@ export async function _unlockAudioContext(): Promise<void> {
  * Represents a Wonderland audio listener component.
  * Updates the position and orientation of a WebAudio listener instance.
  *
- * @note Only one listener should be active at a time.
+ * @remarks Only one listener should be active at a time.
  */
 export class AudioListener extends Component {
     static TypeName = 'audio-listener';
