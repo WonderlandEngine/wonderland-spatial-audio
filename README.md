@@ -11,6 +11,8 @@ orientations in the [WebAudio](https://developer.mozilla.org/en-US/docs/Web/API/
 
 [View Live Example](https://wonderlandengine.github.io/wonderland-spatial-audio/)
 
+[View Documentation](https://wonderlandengine.github.io/wonderland-spatial-audio/docs/)
+
 
 ## Usage Guide
 
