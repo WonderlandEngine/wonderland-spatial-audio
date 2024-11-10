@@ -22,6 +22,7 @@ jobs:
         cd example
         /usr/local/bin/entrypoint.sh WonderlandEditor --windowless --package --project ./SpatialAudioLab.wlp --credentials "$WLE_CREDENTIALS"
         cd ..
+        npx typedoc --entryPoints ./src/index.ts --out example/deploy/docs --exclude "**/node_modules/**" 
       env:
           WLE_CREDENTIALS: ${{ secrets.WLE_CREDENTIALS }}
     - name: Gzip
