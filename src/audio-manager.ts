@@ -198,6 +198,7 @@ export class AudioManager {
         if (!this._bufferCache[id]) {
             this._bufferCache[id] = [];
         }
+        this._instanceCounter[id] = -1;
         for (let i = 0; i < paths.length; i++) {
             const response = await fetch(paths[i]);
             const arrayBuffer = await response.arrayBuffer();
@@ -245,6 +246,10 @@ export class AudioManager {
      * emitter. If playback could not be started, an invalid playId is returned.
      */
     play(id: number, config?: PlayConfig) {
+        if (this._instanceCounter[id] == -1) {
+            console.warn(`audio-manager: Tried to play audio that is still decoding: ${id}`);
+            return -1;
+        }
         const bufferList = this._bufferCache[id];
         if (!bufferList) {
             throw new Error(
