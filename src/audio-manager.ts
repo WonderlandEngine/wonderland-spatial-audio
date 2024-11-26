@@ -224,9 +224,7 @@ export class AudioManager {
      * @returns A Promise that resolves when all files are successfully loaded.
      */
     async loadBatch(...pair: [string[] | string, number][]) {
-        for (const p of pair) {
-            await this.load(p[0], p[1]);
-        }
+        return Promise.all(pair.map(p => this.load(p[0], p[1])));
     }
 
     /**
@@ -252,9 +250,10 @@ export class AudioManager {
         }
         const bufferList = this._bufferCache[id];
         if (!bufferList) {
-            throw new Error(
+            console.warn(
                 `audio-manager: No audio source is associated with identifier: ${id}`
             );
+            return -1;
         }
         if (!this._unlocked) {
             return -1;
