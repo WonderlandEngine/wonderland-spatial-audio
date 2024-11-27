@@ -74,6 +74,29 @@ export const DEF_PLAYER_COUNT = 32;
 const SHIFT_AMOUNT = 16;
 const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
 
+
+export interface IAudioManager {
+    load(path: string[] | string, id: number): void;
+    loadBatch(...pair: [string[] | string, number][]): void;
+    play(id: number, config?: PlayConfig): number;
+    playOneShot(id: number, config?: PlayConfig): void;
+    autoplay(id: number, config?: PlayConfig): number;
+    stop(playId: number): void;
+    pause(playId: number): void;
+    resume(playId: number): void;
+    stopOneShots(): void;
+    resumeAll(): void;
+    pauseAll(): void;
+    stopAll(): void;
+    setGlobalVolume(channel: AudioChannel, volume: number, time: number): void;
+    remove(id: number): void;
+    removeAll(): void;
+    getSourceIdFromPlayId(playId: number): number;
+    get amountOfFreePlayers(): number;
+}
+
+
+
 /**
  * Manages audio files and players, providing control over playback on three audio channels.
  *
@@ -104,7 +127,7 @@ const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
  * }
  * ```
  */
-export class AudioManager {
+export class AudioManager implements IAudioManager {
     /** The emitter will notify all listeners about the PlayState of a unique ID.
      *
      * @remarks
@@ -595,9 +618,24 @@ export class AudioManager {
     }
 }
 
-class EmptyAudioManager {
+export class EmptyAudioManager implements IAudioManager {
     async load(path: string[] | string, id: number) {}
     async loadBatch(...pair: [string[] | string, number][]) {}
+    play(id: number, config?: PlayConfig) {return -1}
+    playOneShot(id: number, config?: PlayConfig) {};
+    autoplay(id: number, config?: PlayConfig) {return -1};
+    stop(playId: number) {}
+    pause(playId: number) {}
+    resume(playId: number) {}
+    stopOneShots() {}
+    resumeAll() {}
+    pauseAll() {}
+    stopAll() {}
+    setGlobalVolume(channel: AudioChannel, volume: number, time: number) {}
+    remove(id: number) {}
+    removeAll() {}
+    getSourceIdFromPlayId(playId: number) {return -1}
+    get amountOfFreePlayers() {return -1}
 }
 
 /**
@@ -611,6 +649,6 @@ class EmptyAudioManager {
  * @warning
  * ⚠️ Only load() and loadBatch() can be used in top-level code ⚠️
  */
-export const globalAudioManager = window.AudioContext
+export const globalAudioManager: IAudioManager = window.AudioContext
     ? new AudioManager()
     : new EmptyAudioManager();
