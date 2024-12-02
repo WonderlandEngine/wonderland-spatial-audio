@@ -127,6 +127,16 @@ export class AudioManager {
     readonly emitter = new Emitter<[PlayStateWithID]>();
 
     /**
+     * User-defined callback executed when the browser becomes unfocused.
+     */
+    onBlur: (() => void) | null = null;
+
+    /**
+     * User-defined callback executed when the browser refocuses.
+     */
+    onFocus: (() => void) | null = null;
+
+    /**
      * Sets the random function the manager will use for selecting buffers.
      *
      * @remarks Default random function is Math.random()
@@ -175,6 +185,24 @@ export class AudioManager {
         for (let i = 0; i < DEF_PLAYER_COUNT; i++) {
             this._playerCache.push(new BufferPlayer(this));
         }
+
+        this.onBlur = () => {
+            console.log("audio-manager: Browser unfocused, pausing all audio.");
+            this.pauseAll();
+        };
+
+        this.onFocus = () => {
+            console.log("audio-manager: Browser refocused, resuming audio.");
+            this.resumeAll();
+        };
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                this.onBlur?.();
+            } else {
+                this.onFocus?.();
+            }
+        });
     }
 
     /**
