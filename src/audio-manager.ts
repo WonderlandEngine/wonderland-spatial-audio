@@ -74,29 +74,6 @@ export const DEF_PLAYER_COUNT = 32;
 const SHIFT_AMOUNT = 16;
 const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
 
-
-export interface IAudioManager {
-    load(path: string[] | string, id: number): void;
-    loadBatch(...pair: [string[] | string, number][]): void;
-    play(id: number, config?: PlayConfig): number;
-    playOneShot(id: number, config?: PlayConfig): void;
-    autoplay(id: number, config?: PlayConfig): number;
-    stop(playId: number): void;
-    pause(playId: number): void;
-    resume(playId: number): void;
-    stopOneShots(): void;
-    resumeAll(): void;
-    pauseAll(): void;
-    stopAll(): void;
-    setGlobalVolume(channel: AudioChannel, volume: number, time: number): void;
-    remove(id: number): void;
-    removeAll(): void;
-    getSourceIdFromPlayId(playId: number): number;
-    get amountOfFreePlayers(): number;
-}
-
-
-
 /**
  * Manages audio files and players, providing control over playback on three audio channels.
  *
@@ -127,6 +104,175 @@ export interface IAudioManager {
  * }
  * ```
  */
+export interface IAudioManager {
+    
+    /**
+     * Decodes and stores the given audio files and associates them with the given ID.
+     *
+     * @param path Path to the audio files. Can either be a single string or a list of strings.
+     * @param id Identifier for the given audio files.
+     *
+     * @remarks Is there more than one audio file available per id, on playback, they will be selected at random.
+     * This enables easy variation of the same sounds!
+     *
+     * @throws If negative ID was provided.
+     *
+     * @returns A Promise that resolves when all files are successfully loaded.
+     */
+    load(path: string[] | string, id: number): void;
+
+    /**
+     * Same as load(), but lets you easily load a bunch of files without needing to call the manager everytime.
+     *
+     * @see load
+     *
+     * @param pair Pair of source files and associating identifier.
+     * Multiple pairs can be provided as separate arguments.
+     *
+     * @throws If negative ID was provided.
+     *
+     * @returns A Promise that resolves when all files are successfully loaded.
+     */
+    loadBatch(...pair: [string[] | string, number][]): void;
+
+    /**
+     * Plays the audio file associated with the given ID.
+     *
+     * @param id ID of the file that should be played.
+     * @param config Optional parameter that will configure how the audio is played. Is no configuration provided,
+     * the audio will play at volume 1.0, without panning and on the SFX channel, priority set to false.
+     *
+     * @note If the 'priority' parameter is set to true, the audio playback will not be interrupted
+     * to allocate a player in case all players are currently occupied. If 'priority' is set to false (default),
+     * playback may be interrupted to allocate a player for a new 'play()' call.
+     *
+     * @throws If the given ID does not have a buffer associated with it or there are no available players.
+     *
+     * @returns The playId that identifies this specific playback, so it can be stopped or identified in the
+     * emitter. If playback could not be started, an invalid playId is returned.
+     */
+    play(id: number, config?: PlayConfig): number;
+
+    /**
+     * Plays the audio file associated with the given ID until it naturally ends.
+     *
+     * @note
+     * - IDs can be triggered as often as there are one-shot players in the AudioManager.
+     * - One shots work with First-In-First-Out principle. If all players are occupied, the manager will stop the
+     *   one that started playing first, to free up a player for the new ID.
+     * - One-shots are always connect to the SFX channel.
+     * - One-shots cant loop.
+     * - One-shots can only be stopped all at once with stopOneShots().
+     * - One-shots can't be assigned a priority.
+     *
+     * @param id ID of the file that should be played.
+     * @param config  Optional parameter that will configure how the audio is played. Note that only the position
+     * and volume settings will affect the playback.
+     * @throws If the given ID does not have a buffer associated with it.
+     *
+     * @deprecated since > 1.2.0, use play() instead.
+     */
+    playOneShot(id: number, config?: PlayConfig): void;
+
+    /**
+     * Same as `play()` but waits until the user has interacted with the website.
+     *
+     * @param id ID of the file that should be played.
+     * @param config Optional parameter that will configure how the audio is played. Is no configuration provided,
+     * the audio will play at volume 1.0, without panning and on the SFX channel, priority set to false.
+     *
+     * @returns The playId that identifies this specific playback, so it can be stopped or identified in the
+     * emitter.
+     */
+    autoplay(id: number, config?: PlayConfig): number;
+
+    /**
+     * Stops the audio associated with the given ID.
+     *
+     * @param playId Specifies the exact audio that should be stopped.
+     *
+     * @note Obtain the playId from the play() method.
+     * @see play
+     */
+    stop(playId: number): void;
+
+    /**
+     * Pauses a playing audio.
+     *
+     * @param playId Id of the source that should be paused.
+     */
+    pause(playId: number): void;
+
+    /**
+     * Resumes a paused audio.
+     *
+     * @param playId Id of the source that should be resumed.
+     */
+    resume(playId: number): void;
+
+    /**
+     * Stops playback of all one-shot players.
+     * @deprecated since >1.2.0, use  regular play() with stop() instead.
+     */
+    stopOneShots(): void;
+
+    /**
+     * Resumes all paused players.
+     */
+    resumeAll(): void;
+
+    /**
+     * Pauses all playing players.
+     */
+    pauseAll(): void;
+
+    /**
+     * Stops all audio.
+     */
+    stopAll(): void;
+
+    /**
+     * Sets the volume of the given audio channel.
+     *
+     * @param channel Specifies the audio channel that should be modified.
+     * @param volume Volume that the channel should be set to.
+     * @param time Optional time parameter that specifies the time it takes for the channel to reach the specified
+     * volume in seconds (Default is 0).
+     */
+    setGlobalVolume(channel: AudioChannel, volume: number, time: number): void;
+
+    /**
+     * Removes all decoded audio from the manager that is associated with the given ID.
+     *
+     * @warning This will stop playback of the given ID.
+     * @param id Identifier of the audio that should be removed.
+     */
+    remove(id: number): void;
+
+    /**
+     * Removes all decoded audio from the manager, effectively resetting it.
+     *
+     * @warning This will stop playback entirely.
+     */
+    removeAll(): void;
+
+    /**
+     * Gets the sourceId of a playId.
+     *
+     * @param playId of which to get the sourceId from.
+     */
+    getSourceIdFromPlayId(playId: number): number;
+
+    /**
+     * Gets the current amount of free players in the audio manager.
+     *
+     * @note Use this to check how many resources your current project is using.
+     */
+    get amountOfFreePlayers(): number;
+}
+
+
+
 export class AudioManager implements IAudioManager {
     /** The emitter will notify all listeners about the PlayState of a unique ID.
      *
@@ -200,19 +346,6 @@ export class AudioManager implements IAudioManager {
         }
     }
 
-    /**
-     * Decodes and stores the given audio files and associates them with the given ID.
-     *
-     * @param path Path to the audio files. Can either be a single string or a list of strings.
-     * @param id Identifier for the given audio files.
-     *
-     * @remarks Is there more than one audio file available per id, on playback, they will be selected at random.
-     * This enables easy variation of the same sounds!
-     *
-     * @throws If negative ID was provided.
-     *
-     * @returns A Promise that resolves when all files are successfully loaded.
-     */
     async load(path: string[] | string, id: number) {
         if (id < 0) {
             throw new Error('audio-manager: Negative IDs are not valid! Skipping ${path}.');
@@ -234,38 +367,10 @@ export class AudioManager implements IAudioManager {
         this.emitter.notify({id: id, state: PlayState.Ready});
     }
 
-    /**
-     * Same as load(), but lets you easily load a bunch of files without needing to call the manager everytime.
-     *
-     * @see load
-     *
-     * @param pair Pair of source files and associating identifier.
-     * Multiple pairs can be provided as separate arguments.
-     *
-     * @throws If negative ID was provided.
-     *
-     * @returns A Promise that resolves when all files are successfully loaded.
-     */
     async loadBatch(...pair: [string[] | string, number][]) {
         return Promise.all(pair.map(p => this.load(p[0], p[1])));
     }
 
-    /**
-     * Plays the audio file associated with the given ID.
-     *
-     * @param id ID of the file that should be played.
-     * @param config Optional parameter that will configure how the audio is played. Is no configuration provided,
-     * the audio will play at volume 1.0, without panning and on the SFX channel, priority set to false.
-     *
-     * @remarks If the 'priority' parameter is set to true, the audio playback will not be interrupted
-     * to allocate a player in case all players are currently occupied. If 'priority' is set to false (default),
-     * playback may be interrupted to allocate a player for a new 'play()' call.
-     *
-     * @throws If the given ID does not have a buffer associated with it or there are no available players.
-     *
-     * @returns The playId that identifies this specific playback, so it can be stopped or identified in the
-     * emitter. If playback could not be started, an invalid playId is returned.
-     */
     play(id: number, config?: PlayConfig) {
         if (this._instanceCounter[id] == -1) {
             console.warn(`audio-manager: Tried to play audio that is still decoding: ${id}`);
@@ -351,25 +456,6 @@ export class AudioManager implements IAudioManager {
         player.play();
     }
 
-    /**
-     * Plays the audio file associated with the given ID until it naturally ends.
-     *
-     * @remarks
-     * - IDs can be triggered as often as there are one-shot players in the AudioManager.
-     * - One shots work with First-In-First-Out principle. If all players are occupied, the manager will stop the
-     *   one that started playing first, to free up a player for the new ID.
-     * - One-shots are always connect to the SFX channel.
-     * - One-shots cant loop.
-     * - One-shots can only be stopped all at once with stopOneShots().
-     * - One-shots can't be assigned a priority.
-     *
-     * @param id ID of the file that should be played.
-     * @param config  Optional parameter that will configure how the audio is played. Note that only the position
-     * and volume settings will affect the playback.
-     * @throws If the given ID does not have a buffer associated with it.
-     *
-     * @deprecated since > 1.2.0, use play() instead.
-     */
     playOneShot(id: number, config?: PlayConfig) {
         if (!config) this.play(id, {oneShot: true});
         config!.loop = false;
@@ -393,16 +479,6 @@ export class AudioManager implements IAudioManager {
         return player;
     }
 
-    /**
-     * Same as `play()` but waits until the user has interacted with the website.
-     *
-     * @param id ID of the file that should be played.
-     * @param config Optional parameter that will configure how the audio is played. Is no configuration provided,
-     * the audio will play at volume 1.0, without panning and on the SFX channel, priority set to false.
-     *
-     * @returns The playId that identifies this specific playback, so it can be stopped or identified in the
-     * emitter.
-     */
     autoplay(id: number, config?: PlayConfig): number {
         if (this._unlocked) {
             return this.play(id, config);
@@ -412,14 +488,6 @@ export class AudioManager implements IAudioManager {
         return uniqueId;
     }
 
-    /**
-     * Stops the audio associated with the given ID.
-     *
-     * @param playId Specifies the exact audio that should be stopped.
-     *
-     * @remarks Obtain the playId from the play() method.
-     * @see play
-     */
     stop(playId: number) {
         this._playerCache.forEach((player) => {
             if (player.playId === playId) {
@@ -429,11 +497,6 @@ export class AudioManager implements IAudioManager {
         });
     }
 
-    /**
-     * Pauses a playing audio.
-     *
-     * @param playId Id of the source that should be paused.
-     */
     pause(playId: number) {
         this._playerCache.forEach((player) => {
             if (player.playId === playId) {
@@ -443,11 +506,6 @@ export class AudioManager implements IAudioManager {
         });
     }
 
-    /**
-     * Resumes a paused audio.
-     *
-     * @param playId Id of the source that should be resumed.
-     */
     resume(playId: number) {
         this._playerCache.forEach((player) => {
             if (player.playId === playId) {
@@ -457,10 +515,6 @@ export class AudioManager implements IAudioManager {
         });
     }
 
-    /**
-     * Stops playback of all one-shot players.
-     * @deprecated since >1.2.0, use  regular play() with stop() instead.
-     */
     stopOneShots() {
         this._playerCache.forEach((player) => {
             if (player.oneShot) {
@@ -470,41 +524,24 @@ export class AudioManager implements IAudioManager {
         });
     }
 
-    /**
-     * Resumes all paused players.
-     */
     resumeAll() {
         this._playerCache.forEach((player) => {
             player.resume();
         });
     }
 
-    /**
-     * Pauses all playing players.
-     */
     pauseAll() {
         this._playerCache.forEach((player) => {
             player.pause();
         });
     }
 
-    /**
-     * Stops all audio.
-     */
     stopAll() {
         this._playerCache.forEach((player) => {
             player.stop();
         });
     }
 
-    /**
-     * Sets the volume of the given audio channel.
-     *
-     * @param channel Specifies the audio channel that should be modified.
-     * @param volume Volume that the channel should be set to.
-     * @param time Optional time parameter that specifies the time it takes for the channel to reach the specified
-     * volume in seconds (Default is 0).
-     */
     setGlobalVolume(channel: AudioChannel, volume: number, time = 0) {
         volume = Math.max(MIN_VOLUME, volume);
         time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, time);
@@ -523,12 +560,6 @@ export class AudioManager implements IAudioManager {
         }
     }
 
-    /**
-     * Removes all decoded audio from the manager that is associated with the given ID.
-     *
-     * @warning This will stop playback of the given ID.
-     * @param id Identifier of the audio that should be removed.
-     */
     remove(id: number) {
         if (id < 0) return;
         this.stop(id);
@@ -536,31 +567,16 @@ export class AudioManager implements IAudioManager {
         this._instanceCounter[id] = -1;
     }
 
-    /**
-     * Removes all decoded audio from the manager, effectively resetting it.
-     *
-     * @warning This will stop playback entirely.
-     */
     removeAll() {
         this.stopAll();
         this._bufferCache.length = 0;
         this._instanceCounter.length = 0;
     }
 
-    /**
-     * Gets the sourceId of a playId.
-     *
-     * @param playId of which to get the sourceId from.
-     */
     getSourceIdFromPlayId(playId: number) {
         return playId >> SHIFT_AMOUNT;
     }
 
-    /**
-     * Gets the current amount of free players in the audio manager.
-     *
-     * @remarks Use this to check how many resources your current project is using.
-     */
     get amountOfFreePlayers() {
         return this._amountOfFreePlayers;
     }
