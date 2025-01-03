@@ -22,7 +22,7 @@ import {VrModeActiveSwitch} from '@wonderlandengine/components';
 import {WasdControlsComponent} from '@wonderlandengine/components';
 import {AudioListener} from '@wonderlandengine/spatial-audio';
 import {BallSpawner} from './ball-spawner.js';
-import {ButtonComponent} from './button.js';
+import {ButtonComponent as ButtonComponent1} from './button.js';
 import {HoveringAnim} from './hovering-anim.js';
 /* wle:auto-imports:end */
 
@@ -101,7 +101,7 @@ engine.registerComponent(VrModeActiveSwitch);
 engine.registerComponent(WasdControlsComponent);
 engine.registerComponent(AudioListener);
 engine.registerComponent(BallSpawner);
-engine.registerComponent(ButtonComponent);
+engine.registerComponent(ButtonComponent1);
 engine.registerComponent(HoveringAnim);
 /* wle:auto-register:end */
 
