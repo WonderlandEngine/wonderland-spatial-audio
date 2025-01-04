@@ -10,6 +10,11 @@ export enum PanningType {
     Hrtf,
 }
 
+interface AudioFile {
+    referenceCount: number;
+    buffer: Promise<AudioBuffer>;
+}
+
 /**
  * Constants
  */
@@ -17,7 +22,14 @@ const posVec = new Float32Array(3);
 const oriVec = new Float32Array(3);
 const distanceModels = ['linear', 'exponential', 'inverse'];
 
-const bufferCache = new Map<string, [AudioBuffer, number]>();
+const bufferCache = new Map<string, AudioFile>();
+
+async function _loadAudio(source: string): Promise<AudioBuffer> {
+    const response = await fetch(source);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = await _audioContext.decodeAudioData(arrayBuffer);    
+    return buffer;
+}
 
 /**
  * Adds the specified file to cache.
@@ -25,18 +37,18 @@ const bufferCache = new Map<string, [AudioBuffer, number]>();
  * @warning This is for internal use only, use at own risk!
  */
 async function addBufferToCache(source: string): Promise<AudioBuffer> {
+    let audio: AudioFile;
     if (bufferCache.has(source)) {
-        const [audioBuffer, referenceCount] = bufferCache.get(source)!;
-        bufferCache.set(source, [audioBuffer, referenceCount + 1]);
-        return audioBuffer;
+        audio = bufferCache.get(source)!;
+        audio.referenceCount += 1;
+    } else {
+        audio = {
+            referenceCount: 1,
+            buffer: _loadAudio(source), // Delay await until bufferCache is set, to avoid subsequent calls with same source to start decoding
+        }        
+        bufferCache.set(source, audio);
     }
-
-    const response = await fetch(source);
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBuffer = await _audioContext.decodeAudioData(arrayBuffer);
-
-    bufferCache.set(source, [audioBuffer, 1]);
-    return audioBuffer;
+    return await audio.buffer;
 }
 
 /**
@@ -49,10 +61,9 @@ function removeBufferFromCache(source: string) {
     if (!bufferCache.has(source)) {
         return;
     }
-    const [, referenceCount] = bufferCache.get(source)!;
-    if (referenceCount > 1) {
-        const [audioBuffer, referenceCount] = bufferCache.get(source)!;
-        bufferCache.set(source, [audioBuffer, referenceCount - 1]);
+    const audioFile = bufferCache.get(source)!;
+    if (audioFile.referenceCount > 1) {
+        audioFile.referenceCount -= 1;
     } else {
         bufferCache.delete(source);
     }
