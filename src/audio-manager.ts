@@ -105,7 +105,6 @@ const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
  * ```
  */
 export interface IAudioManager {
-    
     /**
      * Decodes and stores the given audio files and associates them with the given ID.
      *

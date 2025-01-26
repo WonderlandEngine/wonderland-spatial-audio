@@ -1,6 +1,12 @@
 import {Component, Property} from '@wonderlandengine/api';
 import {CursorTarget} from '@wonderlandengine/components';
-import {AudioSource} from '@wonderlandengine/spatial-audio';
+import {globalAudioManager, AudioSource} from '@wonderlandengine/spatial-audio';
+
+enum Sounds {
+    Click,
+    Unclick,
+    Welcome,
+}
 
 /**
  * Helper function to trigger haptic feedback pulse.
@@ -38,7 +44,7 @@ export class ButtonComponent extends Component {
     }
     /* Position to return to when "unpressing" the button */
     returnPos = new Float32Array(3);
-    start() {
+    async start() {
         const target =
             this.object.getComponent(CursorTarget) ||
             this.object.addComponent(CursorTarget);
@@ -50,24 +56,18 @@ export class ButtonComponent extends Component {
         target.onDown.add(this.onDown.bind(this));
         target.onUp.add(this.onUp.bind(this));
         this.returnPos = this.object.getPositionLocal();
-        this.click = this.object.addComponent(AudioSource, {
-            src: 'sfx/click.wav',
-            isStationary: true,
-            maxVolume: 0.5,
+
+        await globalAudioManager.loadBatch(
+            ['sfx/click.wav', Sounds.Click],
+            ['sfx/unclick.wav', Sounds.Unclick],
+            ['sfx/welcome.wav', Sounds.Welcome],
+        )
+
+        globalAudioManager.autoplay(Sounds.Welcome, {
+            position: [-5, 1, 2],
+            volume: 0.5,
         });
-        this.unclick = this.object.addComponent(AudioSource, {
-            src: 'sfx/unclick.wav',
-            isStationary: true,
-            maxVolume: 0.5,
-        });
-        this.welcome = WL.scene.addObject(this.object);
-        this.welcome.addComponent(AudioSource, {
-            src: 'sfx/welcome.wav',
-            autoplay: true,
-            isStationary: true,
-        });
-        this.welcome.setPositionWorld([-5, 1, 2]);
-        this.first = true;
+
     }
 
     /* Called by 'cursor-target' */
@@ -81,7 +81,10 @@ export class ButtonComponent extends Component {
 
     /* Called by 'cursor-target' */
     async onDown(_, cursor) {
-        this.click.play();
+        globalAudioManager.play(Sounds.Click, {
+            position: this.returnPos,
+            volume: 0.3
+        });
         this.audio.startPlaying();
         this.object.setPositionLocal([
             this.returnPos[0],
@@ -94,7 +97,10 @@ export class ButtonComponent extends Component {
     /* Called by 'cursor-target' */
     onUp(_, cursor) {
         this.object.setPositionLocal(this.returnPos);
-        this.unclick.play();
+        globalAudioManager.play(Sounds.Unclick, {
+            position: this.returnPos,
+            volume: 0.3
+        });
         hapticFeedback(cursor.object, 0.7, 20);
     }
 
