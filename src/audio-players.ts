@@ -1,4 +1,5 @@
 import {_audioContext} from './audio-listener.js';
+import {Object3D} from '@wonderlandengine/api';
 import {AudioChannel, AudioManager, PlayState} from './audio-manager.js';
 
 /* Ramp times of 0 cause a click, 5 ms should be sufficient */
@@ -96,6 +97,16 @@ export class BufferPlayer {
 
     emitState() {
         this._audioManager.emitter.notify({id: this.playId, state: this._playState});
+    }
+
+    updatePannerNode(dt: number, pos: Float32Array, ori: Float32Array) {
+        const time = _audioContext.currentTime + dt;
+        this._pannerNode.positionX.linearRampToValueAtTime(pos[0], time);
+        this._pannerNode.positionY.linearRampToValueAtTime(pos[2], time);
+        this._pannerNode.positionZ.linearRampToValueAtTime(-pos[1], time);
+        this._pannerNode.orientationX.linearRampToValueAtTime(ori[0], time);
+        this._pannerNode.orientationY.linearRampToValueAtTime(ori[2], time);
+        this._pannerNode.orientationZ.linearRampToValueAtTime(-ori[1], time);
     }
 
     /**

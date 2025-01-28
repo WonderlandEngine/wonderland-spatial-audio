@@ -1,18 +1,18 @@
 import {Component, Emitter, WonderlandEngine} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {_audioContext, AudioListener, _unlockAudioContext} from './audio-listener.js';
-import {AudioChannel, AudioManager, PlayState} from './audio-manager.js';
-import {MIN_RAMP_TIME, MIN_VOLUME} from './audio-players.js';
+import {PlayConfig, PlayStateWithID, AudioChannel, IAudioManager, AudioManager, EmptyAudioManager, PlayState} from './audio-manager.js';
+import {MIN_RAMP_TIME, MIN_VOLUME, BufferPlayer} from './audio-players.js';
+
+// TODO (Timothy): list
+// - Add something to audio manager that will notifiy state change and let someone know easily
+// - Make lookup easier for currently active unique ids (Keep a list of currently playing or something?)
+// - Add ability to configure entire panner options in audio manager 
 
 export enum PanningType {
     None,
     Regular,
     Hrtf,
-}
-
-interface AudioFile {
-    referenceCount: number;
-    buffer: Promise<AudioBuffer>;
 }
 
 /**
@@ -22,52 +22,12 @@ const posVec = new Float32Array(3);
 const oriVec = new Float32Array(3);
 const distanceModels = ['linear', 'exponential', 'inverse'];
 
-const bufferCache = new Map<string, AudioFile>();
+let idCounter = 0;
+const loadedPaths = new Map<string, number>();
 
-async function _loadAudio(source: string): Promise<AudioBuffer> {
-    const response = await fetch(source);
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = await _audioContext.decodeAudioData(arrayBuffer);    
-    return buffer;
-}
-
-/**
- * Adds the specified file to cache.
- * @param source Path to the file that should be added to cache.
- * @warning This is for internal use only, use at own risk!
- */
-async function addBufferToCache(source: string): Promise<AudioBuffer> {
-    let audio: AudioFile;
-    if (bufferCache.has(source)) {
-        audio = bufferCache.get(source)!;
-        audio.referenceCount += 1;
-    } else {
-        audio = {
-            referenceCount: 1,
-            buffer: _loadAudio(source), // Delay await until bufferCache is set, to avoid subsequent calls with same source to start decoding
-        }        
-        bufferCache.set(source, audio);
-    }
-    return await audio.buffer;
-}
-
-/**
- * Removes the specified file from cache.
- *
- * @param source Path to the file that should be evicted from cache.
- * @warning This is for internal use only, use at own risk!
- */
-function removeBufferFromCache(source: string) {
-    if (!bufferCache.has(source)) {
-        return;
-    }
-    const audioFile = bufferCache.get(source)!;
-    if (audioFile.referenceCount > 1) {
-        audioFile.referenceCount -= 1;
-    } else {
-        bufferCache.delete(source);
-    }
-}
+const sourceAudioManager: IAudioManager = window.AudioContext
+    ? new AudioManager()
+    : new EmptyAudioManager();
 
 /**
  * Represents an audio src in the Wonderland Engine, allowing playback of audio files.
@@ -94,7 +54,20 @@ export class AudioSource extends Component {
      * @see setVolumeDuringPlayback
      */
     @property.float(1.0)
-    volume!: number;
+    set volume(v: number) {
+        if (this.isPlaying) {
+            const volume = Math.max(MIN_VOLUME, v);
+            const time = _audioContext.currentTime + MIN_RAMP_TIME;
+            for (const player of sourceAudioManager._playerCache) {
+                if (player.playId == this._uniqueAudioID) {
+                    player._gainNode.gain.linearRampToValueAtTime(volume, time);
+                    break;
+                }
+            }
+        } 
+        this._volume = v;
+    }
+
 
     /** Whether to loop the sound. */
     @property.bool(false)
@@ -147,6 +120,7 @@ export class AudioSource extends Component {
     @property.float(0)
     coneOuterGain!: number;
 
+
     /**
      * The emitter will notify all subscribers when a state change occurs.
      * @see PlayState
@@ -155,12 +129,13 @@ export class AudioSource extends Component {
 
     private _pannerOptions: PannerOptions = {};
     private _buffer!: AudioBuffer;
-    private _pannerNode = new PannerNode(_audioContext);
-    private _audioNode = new AudioBufferSourceNode(_audioContext);
-    private _isPlaying = false;
     private _time = 0;
-
-    private readonly _gainNode = new GainNode(_audioContext);
+    private _audioID = -1;
+    private _uniqueAudioID = -1;
+    private _channel = AudioChannel.Master;
+    private _volume = 1;
+    private _isPlaying = false;
+    private _currentPlayer: BufferPlayer | undefined = undefined;
 
     /**
      * Initializes the audio src component.
@@ -169,35 +144,39 @@ export class AudioSource extends Component {
      * @throws If no audio source path was provided.
      */
     async start() {
-        if (this.src === '') {
-            throw new Error('audio-source: No audio source path provided.');
+        if (this.src !== '') {
+            // TODO (Timothy): Make sure this is not ruined by async
+            loadedPaths.set(this.src, idCounter);
+            this._audioID = idCounter;
+            idCounter++;
+            await sourceAudioManager.load(this.src, this._audioID);
         }
-        this._gainNode.connect(_audioContext.destination);
-        this._buffer = await addBufferToCache(this.src);
+
+        // TODO (Timothy): This is very bad since it will get a message for each audio that changes state -> N^2
+        sourceAudioManager.emitter.add((data: PlayStateWithID) => {
+            if (data.id !== this._uniqueAudioID) return
+            switch (data.state) {
+            case PlayState.Playing:
+                this._isPlaying = true;
+            case PlayState.Stopped:
+                this._isPlaying = false;
+                this.update = undefined
+                break;
+            case PlayState.Paused:
+                this._isPlaying = false;
+            default:
+            }
+        })
         this.emitter.notify(PlayState.Ready);
-        if (this.autoplay) {
-            this.play();
+        if (this.autoplay && this._audioID !== -1) {
+            this._uniqueAudioID = sourceAudioManager.autoplay(this._audioID);
         }
     }
 
-    setAudioChannel(am: AudioManager, channel: AudioChannel) {
+    // TODO (Timothy): Add documentation, @deprecated am param
+    setAudioChannel(am: AudioManager | undefined, channel: AudioChannel) {
         this.stop();
-        switch (channel) {
-            case AudioChannel.Music:
-                this._gainNode.disconnect();
-                this._gainNode.connect(am['_musicGain']);
-                break;
-            case AudioChannel.Sfx:
-                this._gainNode.disconnect();
-                this._gainNode.connect(am['_sfxGain']);
-                break;
-            case AudioChannel.Master:
-                this._gainNode.disconnect();
-                this._gainNode.connect(am['_masterGain']);
-                break;
-            default:
-                return;
-        }
+        this._channel = channel;
     }
 
     /**
@@ -206,28 +185,34 @@ export class AudioSource extends Component {
      * @remarks Is this audio-source currently playing, playback will be restarted.
      */
     async play() {
-        if (this._isPlaying) {
-            this.stop();
-        } else if (_audioContext.state === 'suspended') {
+        if (_audioContext.state === 'suspended') {
             await _unlockAudioContext();
         }
-        this._gainNode.gain.value = this.volume;
-        this._audioNode.buffer = this._buffer;
-        this._audioNode.loop = this.loop;
-        if (!this.spatial) {
-            this._audioNode.connect(this._gainNode);
-        } else {
+
+        const playConfig: PlayConfig = {
+            volume: this.volume,
+            loop: this.loop,
+            priority: true, // AudioSource should prob never stop playing randomly
+            channel: this._channel,
+            // TODO (Timothy): Add offset when implemented resume feature
+        }
+
+        if (this.spatial) {
             this._updateSettings();
-            /* PannerNodes can't be reused, as they will play at their last position for a short period */
-            this._pannerNode = new PannerNode(_audioContext, this._pannerOptions);
-            this._audioNode.connect(this._pannerNode).connect(this._gainNode);
-        }
-        this._audioNode.onended = () => this.stop();
-        this._audioNode.start();
-        this._isPlaying = true;
-        if (!this.isStationary) {
-            this.update = this._update.bind(this);
-        }
+            playConfig.pannerOptions = this._pannerOptions;
+            if (!this.isStationary) {
+                this.update = this._update.bind(this);
+                for (const player of sourceAudioManager._playerCache) {
+                    if (player.playId === this._uniqueAudioID) {
+                        this._currentPlayer = player;
+                        break;
+                    }
+                }
+            }
+        } 
+
+
+        this._uniqueAudioID = sourceAudioManager.play(this._audioID, playConfig);
         this.emitter.notify(PlayState.Playing);
     }
 
@@ -235,14 +220,7 @@ export class AudioSource extends Component {
      * Stops the audio associated with this audio src.
      */
     stop() {
-        if (!this._isPlaying) return;
-        this._isPlaying = false;
-        this._audioNode.onended = null;
-        this._audioNode.stop();
-        this.update = undefined;
-        this._audioNode.disconnect();
-        this._pannerNode.disconnect();
-        this._audioNode = new AudioBufferSourceNode(_audioContext);
+        sourceAudioManager.stop(this._uniqueAudioID)
         this.emitter.notify(PlayState.Stopped);
     }
 
@@ -260,9 +238,17 @@ export class AudioSource extends Component {
      * seconds (Default is 0).
      */
     setVolumeDuringPlayback(v: number, t = 0) {
-        const volume = Math.max(MIN_VOLUME, v);
-        const time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, t);
-        this._gainNode.gain.linearRampToValueAtTime(volume, time);
+        if (this.isPlaying) {
+            const volume = Math.max(MIN_VOLUME, v);
+            const time = _audioContext.currentTime + Math.max(MIN_RAMP_TIME, t);
+            for (const player of sourceAudioManager._playerCache) {
+                if (player.playId == this._uniqueAudioID) {
+                    player._gainNode.gain.linearRampToValueAtTime(volume, time);
+                    break;
+                }
+            }
+        } 
+        this._volume = v;
     }
 
     /**
@@ -271,9 +257,17 @@ export class AudioSource extends Component {
      * @param path Path to the audio file.
      */
     async changeAudioSource(path: string) {
-        this._buffer = await addBufferToCache(path);
-        removeBufferFromCache(this.src);
+        this.stop()
         this.src = path;
+        let id = loadedPaths.get(path);
+        if (id === undefined) {
+            loadedPaths.set(path, idCounter);
+            id = idCounter;
+            idCounter++;
+            await sourceAudioManager.load(path, id);
+        }
+
+        this._audioID = id;
     }
 
     /**
@@ -290,21 +284,13 @@ export class AudioSource extends Component {
      */
     onDestroy() {
         this.stop();
-        this._gainNode.disconnect();
-        removeBufferFromCache(this.src);
+        // TODO (Timothy): Add something to audio manager to remvoe sources? 
     }
 
     private _update(dt: number) {
         this.object.getPositionWorld(posVec);
         this.object.getForwardWorld(oriVec);
-
-        this._time = _audioContext.currentTime + dt;
-        this._pannerNode.positionX.linearRampToValueAtTime(posVec[0], this._time);
-        this._pannerNode.positionY.linearRampToValueAtTime(posVec[2], this._time);
-        this._pannerNode.positionZ.linearRampToValueAtTime(-posVec[1], this._time);
-        this._pannerNode.orientationX.linearRampToValueAtTime(oriVec[0], this._time);
-        this._pannerNode.orientationY.linearRampToValueAtTime(oriVec[2], this._time);
-        this._pannerNode.orientationZ.linearRampToValueAtTime(-oriVec[1], this._time);
+        this._currentPlayer?.updatePannerNode(dt, posVec, oriVec);
     }
 
     /**
@@ -318,7 +304,11 @@ export class AudioSource extends Component {
      * @deprecated Use {@link #volume} instead
      */
     get maxVolume() {
-        return this.volume;
+        return this._volume;
+    }
+
+    get volume() {
+        return this._volume;
     }
 
     private _updateSettings() {

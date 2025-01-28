@@ -1,5 +1,5 @@
 import {_audioContext} from './audio-listener.js';
-import {Emitter} from '@wonderlandengine/api';
+import {Emitter, Object3D} from '@wonderlandengine/api';
 import {BufferPlayer, DEF_VOL, MIN_RAMP_TIME, MIN_VOLUME} from './audio-players.js';
 
 /**
@@ -32,7 +32,7 @@ export enum PlayState {
 /**
  * Represents a combination of a unique identifier and a play state.
  */
-type PlayStateWithID = {
+export type PlayStateWithID = {
     /** Unique identifier associated with the audio source. */
     id: number;
     /** Current state of playback for the audio source. */
@@ -53,7 +53,7 @@ export type PlayConfig = {
      * @remarks Panned audio will always use HRTF for spatialization.
      * For this to work correctly, the audio-listener needs to be set up!
      */
-    position?: Float32Array;
+    position?: Float32Array ;
     /** Sets the channel on which the audio will be played. */
     channel?: AudioChannel;
     /**
@@ -65,6 +65,8 @@ export type PlayConfig = {
     playOffset?: number;
     /** Marks the playback as being a one-shot, @deprecated since >1.2.0 */
     oneShot?: boolean;
+    /** Allows complete control over the internal WebAudio PannerNode, will take priority over the 'position' setting. */
+    pannerOptions?: PannerOptions;
 };
 
 /**
@@ -73,6 +75,8 @@ export type PlayConfig = {
 export const DEF_PLAYER_COUNT = 32;
 const SHIFT_AMOUNT = 16;
 const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
+const posVec = new Float32Array(3);
+const oriVec = new Float32Array(3);
 
 /**
  * Manages audio files and players, providing control over playback on three audio channels.
@@ -105,6 +109,8 @@ const MAX_NUMBER_OF_INSTANCES = (1 << SHIFT_AMOUNT) - 1;
  * ```
  */
 export interface IAudioManager {
+    emitter: Emitter<[PlayStateWithID]>;
+    _playerCache: BufferPlayer[];   
     /**
      * Decodes and stores the given audio files and associates them with the given ID.
      *
@@ -230,6 +236,8 @@ export interface IAudioManager {
      */
     stopAll(): void;
 
+    updatePosition(id: number, dt: number, object: Object3D): void;
+
     /**
      * Sets the volume of the given audio channel.
      *
@@ -306,7 +314,8 @@ export class AudioManager implements IAudioManager {
     private _bufferCache: (AudioBuffer[] | undefined)[] = [];
 
     /* Simple, fast cache for players */
-    private _playerCache: BufferPlayer[] = [];
+    // TODO (Timothy): Write documentation
+    public _playerCache: BufferPlayer[] = [];
     private _playerCacheIndex = 0;
     private _amountOfFreePlayers = DEF_PLAYER_COUNT;
 
@@ -331,7 +340,7 @@ export class AudioManager implements IAudioManager {
      * export const am = window.AudioContext ? new AudioManager() : null!;
      * ```
      */
-    constructor() {
+    constructor(playerCount = DEF_PLAYER_COUNT) {
         this._unlockAudioContext();
         this._sfxGain = new GainNode(_audioContext);
         this._masterGain = new GainNode(_audioContext);
@@ -339,8 +348,7 @@ export class AudioManager implements IAudioManager {
         this._sfxGain.connect(this._masterGain);
         this._musicGain.connect(this._masterGain);
         this._masterGain.connect(_audioContext.destination);
-
-        for (let i = 0; i < DEF_PLAYER_COUNT; i++) {
+        for (let i = 0; i < playerCount; i++) {
             this._playerCache.push(new BufferPlayer(this));
         }
     }
@@ -572,6 +580,25 @@ export class AudioManager implements IAudioManager {
         this._instanceCounter.length = 0;
     }
 
+    updatePosition(id: number, dt: number, object: Object3D) {
+        object.getPositionWorld(posVec);
+        object.getForwardWorld(oriVec);
+        for (const player of this._playerCache) { // TODO (Timothy):  Searching on every update is bad, no idea how to handle this properly
+            if (player.playId == id) {
+                const time = _audioContext.currentTime + dt;
+                player._pannerNode.positionX.linearRampToValueAtTime(posVec[0], time);
+                player._pannerNode.positionY.linearRampToValueAtTime(posVec[2], time);
+                player._pannerNode.positionZ.linearRampToValueAtTime(-posVec[1], time);
+                player._pannerNode.orientationX.linearRampToValueAtTime(oriVec[0], time);
+                player._pannerNode.orientationY.linearRampToValueAtTime(oriVec[2], time);
+                player._pannerNode.orientationZ.linearRampToValueAtTime(-oriVec[1], time);                
+                break;
+            }
+        }
+
+    }
+
+
     getSourceIdFromPlayId(playId: number) {
         return playId >> SHIFT_AMOUNT;
     }
@@ -634,6 +661,8 @@ export class AudioManager implements IAudioManager {
 }
 
 export class EmptyAudioManager implements IAudioManager {
+    _playerCache: BufferPlayer[] = [];
+    emitter = new Emitter<[PlayStateWithID]>();
     async load(path: string[] | string, id: number) {}
     async loadBatch(...pair: [string[] | string, number][]) {}
     play(id: number, config?: PlayConfig) {return -1}
@@ -651,6 +680,7 @@ export class EmptyAudioManager implements IAudioManager {
     removeAll() {}
     getSourceIdFromPlayId(playId: number) {return -1}
     get amountOfFreePlayers() {return -1}
+    updatePosition(id: number, dt: number, object: Object3D) {}
 }
 
 /**
