@@ -169,14 +169,13 @@ export class AudioSource extends Component {
      * @throws If no audio source path was provided.
      */
     async start() {
-        if (this.src === '') {
-            throw new Error('audio-source: No audio source path provided.');
-        }
         this._gainNode.connect(_audioContext.destination);
-        this._buffer = await addBufferToCache(this.src);
-        this.emitter.notify(PlayState.Ready);
-        if (this.autoplay) {
-            this.play();
+        if (this.src !== '') {
+            this._buffer = await addBufferToCache(this.src);
+            this.emitter.notify(PlayState.Ready);
+            if (this.autoplay) {
+                this.play();
+            }
         }
     }
 
@@ -206,6 +205,10 @@ export class AudioSource extends Component {
      * @remarks Is this audio-source currently playing, playback will be restarted.
      */
     async play() {
+        if (this.src === '') {
+            console.warn('audio-source: Tried to play audio without audio file path.');
+            return;
+        }
         if (this._isPlaying) {
             this.stop();
         } else if (_audioContext.state === 'suspended') {
@@ -272,7 +275,7 @@ export class AudioSource extends Component {
      */
     async changeAudioSource(path: string) {
         this._buffer = await addBufferToCache(path);
-        removeBufferFromCache(this.src);
+        // removeBufferFromCache(this.src);
         this.src = path;
     }
 
