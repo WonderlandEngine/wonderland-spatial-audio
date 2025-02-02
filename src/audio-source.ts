@@ -275,7 +275,7 @@ export class AudioSource extends Component {
      */
     async changeAudioSource(path: string) {
         this._buffer = await addBufferToCache(path);
-        // removeBufferFromCache(this.src);
+        removeBufferFromCache(this.src);
         this.src = path;
     }
 
