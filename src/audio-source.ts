@@ -24,7 +24,13 @@ const distanceModels = ['linear', 'exponential', 'inverse'];
 
 const bufferCache = new Map<string, AudioFile>();
 
-async function _loadAudio(source: string): Promise<AudioBuffer> {
+/**
+ * Loads the given audio into a AudioBuffer.
+ * 
+ * @param source Path to the file that should be decoded
+ * @returns A Promise that fulfills once the audio is decoded
+ */
+export async function loadAudio(source: string): Promise<AudioBuffer> {
     const response = await fetch(source);
     const arrayBuffer = await response.arrayBuffer();
     const buffer = await _audioContext.decodeAudioData(arrayBuffer);    
@@ -44,7 +50,7 @@ async function addBufferToCache(source: string): Promise<AudioBuffer> {
     } else {
         audio = {
             referenceCount: 1,
-            buffer: _loadAudio(source), // Delay await until bufferCache is set, to avoid subsequent calls with same source to start decoding
+            buffer: loadAudio(source), // Delay await until bufferCache is set, to avoid subsequent calls with same source to start decoding
         }        
         bufferCache.set(source, audio);
     }
@@ -202,20 +208,17 @@ export class AudioSource extends Component {
     /**
      * Plays the audio associated with this audio src.
      *
+     * @param buffer Optional parameter that will set the raw audio buffer that should be played. Defaults to internal audio buffer that is set with given audio path.
      * @remarks Is this audio-source currently playing, playback will be restarted.
      */
-    async play() {
-        if (this.src === '') {
-            console.warn('audio-source: Tried to play audio without audio file path.');
-            return;
-        }
+    async play(buffer: AudioBuffer = this._buffer) {
         if (this._isPlaying) {
             this.stop();
         } else if (_audioContext.state === 'suspended') {
             await _unlockAudioContext();
         }
         this._gainNode.gain.value = this.volume;
-        this._audioNode.buffer = this._buffer;
+        this._audioNode.buffer = buffer;
         this._audioNode.loop = this.loop;
         if (!this.spatial) {
             this._audioNode.connect(this._gainNode);
