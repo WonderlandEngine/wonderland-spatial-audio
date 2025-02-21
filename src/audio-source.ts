@@ -171,8 +171,6 @@ export class AudioSource extends Component {
     /**
      * Initializes the audio src component.
      * If `autoplay` is enabled, the audio will start playing as soon as the file is loaded.
-     *
-     * @throws If no audio source path was provided.
      */
     async start() {
         this._gainNode.connect(_audioContext.destination);

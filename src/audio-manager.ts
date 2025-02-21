@@ -114,8 +114,6 @@ export interface IAudioManager {
      * @remarks Is there more than one audio file available per id, on playback, they will be selected at random.
      * This enables easy variation of the same sounds!
      *
-     * @throws If negative ID was provided.
-     *
      * @returns A Promise that resolves when all files are successfully loaded.
      */
     load(path: string[] | string, id: number): void;
@@ -127,8 +125,6 @@ export interface IAudioManager {
      *
      * @param pair Pair of source files and associating identifier.
      * Multiple pairs can be provided as separate arguments.
-     *
-     * @throws If negative ID was provided.
      *
      * @returns A Promise that resolves when all files are successfully loaded.
      */
@@ -144,8 +140,6 @@ export interface IAudioManager {
      * @note If the 'priority' parameter is set to true, the audio playback will not be interrupted
      * to allocate a player in case all players are currently occupied. If 'priority' is set to false (default),
      * playback may be interrupted to allocate a player for a new 'play()' call.
-     *
-     * @throws If the given ID does not have a buffer associated with it or there are no available players.
      *
      * @returns The playId that identifies this specific playback, so it can be stopped or identified in the
      * emitter. If playback could not be started, an invalid playId is returned.
@@ -167,7 +161,6 @@ export interface IAudioManager {
      * @param id ID of the file that should be played.
      * @param config  Optional parameter that will configure how the audio is played. Note that only the position
      * and volume settings will affect the playback.
-     * @throws If the given ID does not have a buffer associated with it.
      *
      * @deprecated since > 1.2.0, use play() instead.
      */
@@ -347,7 +340,8 @@ export class AudioManager implements IAudioManager {
 
     async load(path: string[] | string, id: number) {
         if (id < 0) {
-            throw new Error('audio-manager: Negative IDs are not valid! Skipping ${path}.');
+            console.warn('audio-manager: Negative IDs are not valid! Skipping ${path}.');
+            return;
         }
         const paths = Array.isArray(path) ? path : [path];
         if (!this._bufferCache[id]) {
@@ -387,9 +381,10 @@ export class AudioManager implements IAudioManager {
         }
         const player = this._getAvailablePlayer();
         if (!player) {
-            throw new Error(
-                `audio-manager: All players are busy and no low priority player could be found to free up.`
+            console.warn(
+                `audio-manager: All players are busy and no low priority player could be found to free up to play ${id}.`
             );
+            return -1;
         }
 
         const unique_id = this._generateUniqueId(id);
@@ -421,15 +416,17 @@ export class AudioManager implements IAudioManager {
         const id = this.getSourceIdFromPlayId(uniqueId);
         const bufferList = this._bufferCache[id];
         if (!bufferList) {
-            throw new Error(
+            console.warn(
                 `audio-manager: No audio source is associated with identifier: ${id}`
             );
+            return;
         }
         const player = this._getAvailablePlayer();
         if (!player) {
-            throw new Error(
+            console.warn(
                 `audio-manager: All players are busy and no low priority player could be found to free up.`
             );
+            return;
         }
 
         /* Decode playConfig */
