@@ -263,8 +263,6 @@ export interface IAudioManager {
     get amountOfFreePlayers(): number;
 }
 
-
-
 export class AudioManager implements IAudioManager {
     /** The emitter will notify all listeners about the PlayState of a unique ID.
      *
@@ -340,7 +338,7 @@ export class AudioManager implements IAudioManager {
 
     async load(path: string[] | string, id: number) {
         if (id < 0) {
-            console.warn('audio-manager: Negative IDs are not valid! Skipping ${path}.');
+            console.error('audio-manager: Negative IDs are not valid! Skipping ${path}.');
             return;
         }
         const paths = Array.isArray(path) ? path : [path];
@@ -361,17 +359,19 @@ export class AudioManager implements IAudioManager {
     }
 
     async loadBatch(...pair: [string[] | string, number][]) {
-        return Promise.all(pair.map(p => this.load(p[0], p[1])));
+        return Promise.all(pair.map((p) => this.load(p[0], p[1])));
     }
 
     play(id: number, config?: PlayConfig) {
         if (this._instanceCounter[id] == -1) {
-            console.warn(`audio-manager: Tried to play audio that is still decoding: ${id}`);
+            console.warn(
+                `audio-manager: Tried to play audio that is still decoding: ${id}`
+            );
             return -1;
         }
         const bufferList = this._bufferCache[id];
         if (!bufferList) {
-            console.warn(
+            console.error(
                 `audio-manager: No audio source is associated with identifier: ${id}`
             );
             return -1;
@@ -416,7 +416,7 @@ export class AudioManager implements IAudioManager {
         const id = this.getSourceIdFromPlayId(uniqueId);
         const bufferList = this._bufferCache[id];
         if (!bufferList) {
-            console.warn(
+            console.error(
                 `audio-manager: No audio source is associated with identifier: ${id}`
             );
             return;
@@ -633,9 +633,13 @@ export class AudioManager implements IAudioManager {
 export class EmptyAudioManager implements IAudioManager {
     async load(path: string[] | string, id: number) {}
     async loadBatch(...pair: [string[] | string, number][]) {}
-    play(id: number, config?: PlayConfig) {return -1}
-    playOneShot(id: number, config?: PlayConfig) {};
-    autoplay(id: number, config?: PlayConfig) {return -1};
+    play(id: number, config?: PlayConfig) {
+        return -1;
+    }
+    playOneShot(id: number, config?: PlayConfig) {}
+    autoplay(id: number, config?: PlayConfig) {
+        return -1;
+    }
     stop(playId: number) {}
     pause(playId: number) {}
     resume(playId: number) {}
@@ -646,8 +650,12 @@ export class EmptyAudioManager implements IAudioManager {
     setGlobalVolume(channel: AudioChannel, volume: number, time: number) {}
     remove(id: number) {}
     removeAll() {}
-    getSourceIdFromPlayId(playId: number) {return -1}
-    get amountOfFreePlayers() {return -1}
+    getSourceIdFromPlayId(playId: number) {
+        return -1;
+    }
+    get amountOfFreePlayers() {
+        return -1;
+    }
 }
 
 /**
