@@ -26,14 +26,14 @@ const bufferCache = new Map<string, AudioFile>();
 
 /**
  * Loads the given audio into a AudioBuffer.
- * 
+ *
  * @param source Path to the file that should be decoded
  * @returns A Promise that fulfills once the audio is decoded
  */
 export async function loadAudio(source: string): Promise<AudioBuffer> {
     const response = await fetch(source);
     const arrayBuffer = await response.arrayBuffer();
-    const buffer = await _audioContext.decodeAudioData(arrayBuffer);    
+    const buffer = await _audioContext.decodeAudioData(arrayBuffer);
     return buffer;
 }
 
@@ -51,7 +51,7 @@ async function addBufferToCache(source: string): Promise<AudioBuffer> {
         audio = {
             referenceCount: 1,
             buffer: loadAudio(source), // Delay await until bufferCache is set, to avoid subsequent calls with same source to start decoding
-        }        
+        };
         bufferCache.set(source, audio);
     }
     return await audio.buffer;
@@ -163,8 +163,10 @@ export class AudioSource extends Component {
     private _buffer!: AudioBuffer;
     private _pannerNode = new PannerNode(_audioContext);
     private _audioNode = new AudioBufferSourceNode(_audioContext);
-    private _isPlaying = false;
+    private _playState: PlayState = PlayState.Ready;
     private _time = 0;
+    private _lastPlayStartTime = 0;
+    private _playOffset = 0;
 
     private readonly _gainNode = new GainNode(_audioContext);
 
@@ -210,7 +212,7 @@ export class AudioSource extends Component {
      * @remarks Is this audio-source currently playing, playback will be restarted.
      */
     async play(buffer: AudioBuffer = this._buffer) {
-        if (this._isPlaying) {
+        if (this._playState == PlayState.Playing) {
             this.stop();
         } else if (_audioContext.state === 'suspended') {
             await _unlockAudioContext();
@@ -226,9 +228,10 @@ export class AudioSource extends Component {
             this._pannerNode = new PannerNode(_audioContext, this._pannerOptions);
             this._audioNode.connect(this._pannerNode).connect(this._gainNode);
         }
+        this._audioNode.start(0, this._playOffset);
+        this._lastPlayStartTime = _audioContext.currentTime;
         this._audioNode.onended = () => this.stop();
-        this._audioNode.start();
-        this._isPlaying = true;
+        this._playState = PlayState.Playing;
         if (!this.isStationary) {
             this.update = this._update.bind(this);
         }
@@ -239,22 +242,47 @@ export class AudioSource extends Component {
      * Stops the audio associated with this audio src.
      */
     stop() {
-        if (!this._isPlaying) return;
-        this._isPlaying = false;
+        if (this._playState != PlayState.Playing) return;
+        this._playState = PlayState.Stopped;
         this._audioNode.onended = null;
         this._audioNode.stop();
         this.update = undefined;
         this._audioNode.disconnect();
         this._pannerNode.disconnect();
         this._audioNode = new AudioBufferSourceNode(_audioContext);
+        this._playOffset = 0;
         this.emitter.notify(PlayState.Stopped);
+    }
+
+    /**
+     * Pauses the audio associated with this audio src.
+     */
+    pause() {
+        if (this._playState !== PlayState.Playing) return;
+        this._playOffset += _audioContext.currentTime - this._lastPlayStartTime;
+        this._audioNode.onended = null;
+        this._audioNode.stop();
+        this._audioNode.disconnect();
+        this._pannerNode.disconnect();
+        this._audioNode = new AudioBufferSourceNode(_audioContext);
+        this._playState = PlayState.Paused;
+        this.emitter.notify(PlayState.Paused);
+    }
+
+    /**
+     * Resumes the audio associated with this audio src.
+     */
+    resume() {
+        if (this._playState == PlayState.Paused) {
+            this.play();
+        }
     }
 
     /**
      * Checks if the audio src is currently playing.
      */
     get isPlaying(): boolean {
-        return this._isPlaying;
+        return this._playState == PlayState.Playing;
     }
 
     /**
