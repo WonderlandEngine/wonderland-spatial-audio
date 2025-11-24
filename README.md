@@ -1,5 +1,6 @@
 ![build](https://github.com/WonderlandEngine/wonderland-spatial-audio/actions/workflows/github-pages.yml/badge.svg)
 [![NPM Package][npm]](https://www.npmjs.com/package/@wonderlandengine/spatial-audio)
+[![NPM Downloads][npm-downloads]](https://img.shields.io/npm/dw/@wonderlandengine/spatial-audio)
 
 # Wonderland Spatial Audio
 
@@ -110,3 +111,6 @@ control the volume globally. On using `play()`, the respective channels can be s
 
 On Meta Quest 2, the maximum number of simultaneously playing audio sources is
 approximately 30.
+
+[npm]: https://img.shields.io/npm/v/@wonderlandengine/spatial-audio
+[npm-downloads]: https://img.shields.io/npm/dw/@wonderlandengine/spatial-audio
