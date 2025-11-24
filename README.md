@@ -1,4 +1,5 @@
 ![build](https://github.com/WonderlandEngine/wonderland-spatial-audio/actions/workflows/github-pages.yml/badge.svg)
+[![NPM Package][npm]](https://www.npmjs.com/package/@wonderlandengine/spatial-audio)
 
 # Wonderland Spatial Audio
 
